@@ -9,6 +9,7 @@ from cv_core.detector.face_inference import SsdFaceLocationDetector
 from cv_core.detector.face_score_inference import KerasFaceScoreInference
 
 IMG_SIZE = 200
+MIN_BLUR = 50
 SSD_THR = 0.6
 SCORE_THR = 0.5
 BIN_NUM = 1
@@ -31,6 +32,7 @@ def cut_face(image, locations):
 def normalize_points(image, points):
     width = image.shape[1]
     height = image.shape[0]
+    print(width, height)
     for point in points:
         point[0] /= width
         point[1] /= height
@@ -42,7 +44,7 @@ def fr_read_images(images, shape=None):
     landmarks = []
     locs = []
     counter = {'invalid_face': 0}
-    for image in glob.glob('images/*.jpg'):
+    for image in glob.glob('./b.jpg'):
         img = cv2.imread(image, cv2.IMREAD_UNCHANGED)
         img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
 
@@ -68,9 +70,15 @@ def fr_read_images(images, shape=None):
 
         # crop from image
         cut_face_imgs = cut_face(img, locs)
+
         for face_img in cut_face_imgs:
+
             if face_img.size == 0:
                 continue
+            # filter blurry face
+            if variance_of_laplacian(face_img) < MIN_BLUR:
+                continue
+
             if shape != None:
                 assert isinstance(shape, int)
                 face_img = cv2.resize(face_img, (shape, shape))
@@ -78,10 +86,14 @@ def fr_read_images(images, shape=None):
             try:
                 assert len(points) == PTS
             except:
+                print("face landmarks is not 81")
                 continue
             if points_are_valid(points, face_img) is False:
                 counter['invalid_face'] += 1
+                print('points are out of image')
                 continue
+
+            points = normalize_points(face_img, points)
             face_images.append(face_img)
             landmarks.append(points)
     LogManager.info('invalid_face:{}'.format(counter.values()))
@@ -98,7 +110,7 @@ def baseline(images, detector, score_predictor, shape=None):
     for image in glob.glob('ii/*.jpg'):
         img = cv2.imread(image)
         img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-        print(image)
+
         locations = detector.predict(img, SSD_THR)
         try:
             locations = detector.predict(img, SSD_THR)
@@ -135,7 +147,9 @@ def baseline(images, detector, score_predictor, shape=None):
                 if points_are_valid(points, face_img) is False:
                     counter['invalid_face'] += 1
                     continue
+
                 points = normalize_points(face_img, points)
+
                 landmarks.append(points)
 
     face_images = np.array(face_images)
@@ -174,16 +188,16 @@ def main():
     # face_images, landmarks = baseline(
     #     data_path, detector, score_predictor, shape=IMG_SIZE)
 
-    pickeld(save_path, face_images, landmarks, 1)
+    # pickeld(save_path, face_images, landmarks, 1)
 
     for i, face_img in enumerate(face_images):
         draw_landmak_point(face_img, [[px * IMG_SIZE, py * IMG_SIZE]
                                       for px, py in landmarks[i]])
 
         cv2.imwrite('./landmark_image/{}.jpg'.format(i), face_img)
-        # cv2.imshow('My Image', face_img)
-        # cv2.waitKey(0)
-        # cv2.destroyAllWindows()
+        cv2.imshow('My Image', face_img)
+        cv2.waitKey(0)
+        cv2.destroyAllWindows()
 
 
 if __name__ == "__main__":
