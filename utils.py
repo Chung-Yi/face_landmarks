@@ -56,3 +56,8 @@ def box_in_image(box, image):
     rows = image.shape[0]
     cols = image.shape[1]
     return box[0] >= 0 and box[1] >= 0 and box[2] <= cols and box[3] <= rows
+
+
+def variance_of_laplacian(image):
+    # blur detect
+    return cv2.Laplacian(image, cv2.CV_64F).var()
