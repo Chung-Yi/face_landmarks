@@ -130,6 +130,11 @@ def baseline(images, detector, score_predictor, shape=None):
             # print(face_img.shape)
             if face_img.size == 0:
                 continue
+
+            # filter blurry face
+            if variance_of_laplacian(face_img) < MIN_BLUR:
+                continue
+
             # filter low face score out
             if SCORE_THR < score_predictor.predict(face_img)[0][1]:
                 if shape != None:
