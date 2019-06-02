@@ -9,6 +9,9 @@ from keras.layers import Dense, Flatten, Conv2D, MaxPool2D, Dropout
 from keras.optimizers import SGD, Adam
 from load_image_data import load_data
 
+path = os.path.abspath(os.path.dirname(__file__))
+model_path = os.path.join(path, 'models')
+
 
 def cnn_model(x_train):
 
@@ -171,42 +174,58 @@ def plot_images_labels_prediction(images, prediction, num=None):
     if num > 9:
         num = 9
     for i in range(num):
-        marks = np.reshape(prediction[i], (-1, 2))
-        x = np.array([mark[0] for mark in marks])
-        y = np.array([mark[1] for mark in marks])
+        r = np.random.choice(images.shape[0], replace=False)
+        marks = np.reshape(prediction[r], (-1, 2))
+        x = np.array([mark[0] * 200 for mark in marks])
+        y = np.array([mark[1] * 200 for mark in marks])
         ax = plt.subplot(3, 3, i + 1)
-        ax.imshow(images[i], cmap="gray")
+        ax.imshow(images[r], cmap="gray")
         ax.scatter(x, y)
-        ax.set_title("picture " + str(i + 1))
+        ax.set_title("picture " + str(r))
     plt.show()
+
+
+def save_model(model, name):
+    '''
+    save model architecture and model weights
+    '''
+
+    json_string = model.to_json()
+    with open(os.path.join(models_path, name + '_architecture.json'),
+              'w') as f:
+        f.write(json_string)
+    model.save_weights(model_path, name + '_weights.h5')
+    model.save(model_path, name + '.h5')
 
 
 def main():
     # load train data and test data from bin
     (x_train, y_train), (x_test, y_test) = load_data()
-    print(y_test)
+
     # # flatten y_train and y_test
-    # y_train = np.array([y.flatten() for y in y_train])
-    # y_test = np.array([y.flatten() for y in y_test])
+    y_train = np.array([y.flatten() for y in y_train])
+    y_test = np.array([y.flatten() for y in y_test])
 
     # # normalize
-    # x_train = x_train.astype('float32')
-    # x_test = x_test.astype('float32')
-    # x_train = x_train / 255
-    # x_test = x_test / 255
+    x_train = x_train.astype('float32')
+    x_test = x_test.astype('float32')
+    x_train = x_train / 255
+    x_test = x_test / 255
 
-    # model = cnn_model(x_train)
-    # train_history = model.fit(
-    #     x_train,
-    #     y_train,
-    #     validation_split=0.2,
-    #     epochs=2,
-    #     batch_size=32,
-    #     verbose=2,
-    #     steps_per_epoch=50)
+    model = cnn_model(x_train)
+    train_history = model.fit(
+        x_train,
+        y_train,
+        validation_split=0.2,
+        epochs=2000,
+        batch_size=32,
+        verbose=2,
+        steps_per_epoch=50)
 
-    # predict = model.predict(x_test)
-    # plot_images_labels_prediction(x_test, predict, len(x_test))
+    predict = model.predict(x_test)
+    plot_images_labels_prediction(x_test, predict, len(x_test))
+
+    save_model(model, '5000_images')
 
 
 if __name__ == "__main__":
