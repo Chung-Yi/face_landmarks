@@ -7,6 +7,7 @@ import matplotlib.pyplot as plt
 from keras.backend.tensorflow_backend import set_session
 from attrdict import AttrDict
 from keras import Sequential
+from keras.callbacks import EarlyStopping, ModelCheckpoint
 from keras.utils import np_utils
 from keras.layers import Dense, Flatten, Conv2D, MaxPool2D, Dropout
 from keras.optimizers import SGD, Adam
@@ -395,17 +396,16 @@ def plot_sample(X, y, axs):
     axs.scatter(x, y)
 
 
-def save_model(model, name):
+def save_model(model, name, model_path):
     '''
     save model architecture and model weights
     '''
 
     json_string = model.to_json()
-    with open(os.path.join(models_path, name + '_architecture.json'),
-              'w') as f:
+    with open(os.path.join(model_path, name + '_architecture.json'), 'w') as f:
         f.write(json_string)
-    model.save_weights(model_path, name + '_weights.h5')
-    model.save(model_path, name + '.h5')
+    model.save_weights(os.path.join(model_path, name + '_weights.h5'))
+    model.save(os.path.join(model_path, name + '.h5'))
 
 
 def main():
@@ -422,15 +422,38 @@ def main():
     x_train = x_train / 255
     x_test = x_test / 255
 
+    es = EarlyStopping(monitor='val_loss', mode='min', verbose=1, patience=100)
+    mc1 = ModelCheckpoint(
+        'cnn.h5',
+        monitor='val_loss',
+        mode='min',
+        verbose=1,
+        save_best_only=True)
+    mc2 = ModelCheckpoint(
+        'simplecnn.h5',
+        monitor='val_loss',
+        mode='min',
+        verbose=1,
+        save_best_only=True)
+    mc3 = ModelCheckpoint(
+        'simplecnn_dropout.h5',
+        monitor='val_loss',
+        mode='min',
+        verbose=1,
+        save_best_only=True)
+
     # model1
     model1 = cnn_model(x_train)
     train_history_1 = model1.fit(
         x_train,
         y_train,
         validation_split=0.2,
-        epochs=2000,
+        epochs=2,
         batch_size=32,
-        verbose=2)
+        verbose=2,
+        callbacks=[es, mc1])
+
+    save_model(model1, 'cnn', model_path)
 
     # model2
     model2 = SimpleCNN(x_train)
@@ -440,9 +463,25 @@ def main():
         validation_split=0.2,
         epochs=2000,
         batch_size=32,
-        verbose=2)
+        verbose=2,
+        callbacks=[es, mc2])
+
+    save_model(model2, 'simplecnn', model_path)
 
     # model3
+    model4 = SimpleCNN(x_train, withDropout=True)
+    train_history_4 = model4.fit(
+        x_train,
+        y_train,
+        validation_split=0.2,
+        epochs=2000,
+        batch_size=32,
+        verbose=2,
+        callbacks=[es, mc3])
+
+    save_model(model3, 'simplecnn_dropout', model_path)
+
+    # model4
     modifier = FlipImg()
     model3 = SimpleCNN(x_train)
     x_train, x_val, y_train, y_val = train_test_split(
@@ -456,15 +495,7 @@ def main():
         epochs=2000,
         print_every=100)
 
-    # model4
-    model4 = SimpleCNN(x_train, withDropout=True)
-    train_history_4 = model4.fit(
-        x_train,
-        y_train,
-        validation_split=0.2,
-        epochs=2000,
-        batch_size=32,
-        verbose=2)
+    save_model(model4, 'flipcnn', model_path)
 
     plt.figure(figsize=(8, 8))
     show_train_history(train_history_1, 'loss', 'val_loss', 'model1', plt)
@@ -488,10 +519,10 @@ def main():
 
     plot_all_models(x_test, predict1, predict2, predict3, predict4)
 
-    save_model(model1, 'cnn')
-    save_model(model2, 'simplecnn')
-    save_model(model3, 'flipcnn')
-    save_model(model4, 'simplecnn_dropout')
+    # save_model(model1, 'cnn')
+    # save_model(model2, 'simplecnn')
+    # save_model(model3, 'flipcnn')
+    # save_model(model4, 'simplecnn_dropout')
 
 
 if __name__ == "__main__":
