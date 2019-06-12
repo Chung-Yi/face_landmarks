@@ -469,8 +469,8 @@ def main():
     save_model(model2, 'simplecnn', model_path)
 
     # model3
-    model4 = SimpleCNN(x_train, withDropout=True)
-    train_history_4 = model4.fit(
+    model3 = SimpleCNN(x_train, withDropout=True)
+    train_history_3 = model3.fit(
         x_train,
         y_train,
         validation_split=0.2,
@@ -483,11 +483,11 @@ def main():
 
     # model4
     modifier = FlipImg()
-    model3 = SimpleCNN(x_train)
+    model4 = SimpleCNN(x_train)
     x_train, x_val, y_train, y_val = train_test_split(
         x_train, y_train, test_size=0.2, random_state=42)
-    train_history_3 = fit(
-        model3,
+    train_history_4 = fit(
+        model4,
         modifier,
         train=(x_train, y_train),
         validation=(x_val, y_val),
