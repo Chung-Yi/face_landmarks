@@ -448,7 +448,7 @@ def main():
         x_train,
         y_train,
         validation_split=0.2,
-        epochs=2,
+        epochs=2000,
         batch_size=32,
         verbose=2,
         callbacks=[es, mc1])
