@@ -493,7 +493,7 @@ def main():
         validation=(x_val, y_val),
         batch_size=32,
         epochs=2000,
-        print_every=100)
+        print_every=100, patience=100)
 
     save_model(model4, 'flipcnn', model_path)
 
