@@ -15,7 +15,7 @@ SCORE_THR = 0.5
 BIN_NUM = 1
 PTS = 81
 path = os.path.abspath(os.path.dirname(__file__))
-data_path = os.path.join(path, 'images')
+data_path = os.path.join(path, 'less_images')
 model_name = os.path.join(path, 'models/shape_predictor_81_face_landmarks.dat')
 save_path = 'bin'
 
@@ -32,7 +32,7 @@ def cut_face(image, locations):
 def normalize_points(image, points):
     width = image.shape[1]
     height = image.shape[0]
-    print(width, height)
+
     for point in points:
         point[0] /= width
         point[1] /= height
@@ -44,7 +44,7 @@ def fr_read_images(images, shape=None):
     landmarks = []
     locs = []
     counter = {'invalid_face': 0}
-    for image in glob.glob('./b.jpg'):
+    for image in glob.glob(os.path.join(data_path, '*.jpg')):
         img = cv2.imread(image, cv2.IMREAD_UNCHANGED)
         img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
 
@@ -126,8 +126,7 @@ def baseline(images, detector, score_predictor, shape=None):
         cut_face_imgs = cut_face(img, locations)
 
         for face_img in cut_face_imgs:
-            # print(face_img.size)
-            # print(face_img.shape)
+
             if face_img.size == 0:
                 continue
 
@@ -182,7 +181,8 @@ def pickeld(save_path, face_images, landmarks, bin_num=None):
                 'landmarks': landmarks[start:]
             }
 
-        with open(os.path.join(path, save_path, 'data_face_image'), 'wb') as f:
+        with open(os.path.join(path, save_path, 'less_train_image'),
+                  'wb') as f:
             cPickle.dump(dic, f)
 
 
@@ -193,16 +193,16 @@ def main():
     # face_images, landmarks = baseline(
     #     data_path, detector, score_predictor, shape=IMG_SIZE)
 
-    # pickeld(save_path, face_images, landmarks, 1)
+    pickeld(save_path, face_images, landmarks, 1)
 
-    for i, face_img in enumerate(face_images):
-        draw_landmak_point(face_img, [[px * IMG_SIZE, py * IMG_SIZE]
-                                      for px, py in landmarks[i]])
+    # for i, face_img in enumerate(face_images):
+    #     draw_landmak_point(face_img, [[px * IMG_SIZE, py * IMG_SIZE]
+    #                                   for px, py in landmarks[i]])
 
-        cv2.imwrite('./landmark_image/{}.jpg'.format(i), face_img)
-        cv2.imshow('My Image', face_img)
-        cv2.waitKey(0)
-        cv2.destroyAllWindows()
+    #     cv2.imwrite('./landmark_image/{}.jpg'.format(i), face_img)
+    #     cv2.imshow('My Image', face_img)
+    #     cv2.waitKey(0)
+    #     cv2.destroyAllWindows()
 
 
 if __name__ == "__main__":
