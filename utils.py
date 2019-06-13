@@ -17,6 +17,15 @@ def get_68_points(file_name=None):
     return points
 
 
+def scaled_points(image, points):
+    width_scale = image.shape[1] / 200
+    height_scale = image.shape[0] / 200
+    for point in points:
+        point[0] *= 200 * width_scale
+        point[1] *= 200 * height_scale
+    return points
+
+
 def draw_landmak_point(image, points):
     for point in points:
         cv2.circle(image, (int(point[0]), int(point[1])), 3, (0, 255, 0), -1,
