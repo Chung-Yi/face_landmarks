@@ -7,6 +7,13 @@ from utils import *
 from log_manager import LogManager
 from cv_core.detector.face_inference import SsdFaceLocationDetector
 from cv_core.detector.face_score_inference import KerasFaceScoreInference
+from argparse import ArgumentParser
+from uuid import uuid4
+
+parser = ArgumentParser()
+parser.add_argument(
+    '--folder_path', default="face_images", help='choose a image folder')
+args = parser.parse_args()
 
 IMG_SIZE = 200
 MIN_BLUR = 50
@@ -15,18 +22,10 @@ SCORE_THR = 0.5
 BIN_NUM = 1
 PTS = 81
 path = os.path.abspath(os.path.dirname(__file__))
-data_path = os.path.join(path, 'less_images')
+data_path = args.folder_path
 model_name = os.path.join(path, 'models/shape_predictor_81_face_landmarks.dat')
 save_path = 'bin'
-
-
-def cut_face(image, locations):
-    face_imgs = []
-    for loc in locations:
-        start_x, start_y, end_x, end_y = loc
-        face_img = image[start_y - 30:end_y + 30, start_x - 30:end_x + 30, :]
-        face_imgs.append(face_img)
-    return face_imgs
+save_file_name = 'train_image'
 
 
 def normalize_points(image, points):
@@ -39,68 +38,118 @@ def normalize_points(image, points):
     return points
 
 
-def fr_read_images(images, shape=None):
+def fr_read_images(data_path, shape=None):
     face_images = []
+    fnames = []
     landmarks = []
     locs = []
     counter = {'invalid_face': 0}
     for image in glob.glob(os.path.join(data_path, '*.jpg')):
+
         img = cv2.imread(image, cv2.IMREAD_UNCHANGED)
+        if img is None:
+            continue
+        print(image)
+        print(img)
         img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
 
-        # if there is face in an image
-        try:
-            locations = fr.face_locations(img)
-        except RuntimeError:
-            LogManager.error(
-                "{} is an unsupported image, type must be 8bit gray or RGB image"
-                .format(image))
-            continue
+        # points = get_81_points(img, model_name)
+        # try:
+        #     assert len(points) == PTS
+        # except:
+        #     print("face landmarks is not 81")
+        #     continue
 
-        if len(locations) == 0:
-            LogManager().info('There is no face in the {}!'.format(image))
-            print('There is no face in the image!!')
-            continue
-        LogManager().info('Detecting faces in the {}!'.format(image))
+        # for point in points:
+        #     cv2.circle(img, (int(point[0]), int(point[1])), 2, (0, 255, 0), -1,
+        #                cv2.LINE_AA)
 
-        locs = []
-        for loc in locations:
-            start_x, start_y, end_x, end_y = loc[3], loc[0], loc[1], loc[2]
-            locs.append((start_x, start_y, end_x, end_y))
+        # cv2.imwrite(os.path.join('landmark_image', image.split('/')[-1]), img)
 
-        # crop from image
-        cut_face_imgs = cut_face(img, locs)
-
-        for face_img in cut_face_imgs:
-
-            if face_img.size == 0:
-                continue
-            # filter blurry face
-            if variance_of_laplacian(face_img) < MIN_BLUR:
+        if data_path != 'face_images':
+            #if there is face in an image
+            try:
+                locations = fr.face_locations(img)
+            except RuntimeError:
+                LogManager.error(
+                    "{} is an unsupported image, type must be 8bit gray or RGB image"
+                    .format(image))
                 continue
 
-            if shape != None:
-                assert isinstance(shape, int)
-                face_img = cv2.resize(face_img, (shape, shape))
-            points = get_81_points(face_img, model_name)
+            if len(locations) == 0:
+                LogManager().info('There is no face in the {}!'.format(image))
+                print('There is no face in the image!!')
+                continue
+            LogManager().info('Detecting faces in the {}!'.format(image))
+
+            locs = []
+            for loc in locations:
+                start_x, start_y, end_x, end_y = loc[3], loc[0], loc[1], loc[2]
+                locs.append((start_x, start_y, end_x, end_y))
+
+            # crop from image
+            cut_face_imgs = cut_face(img, locs)
+
+            for face_img in cut_face_imgs:
+                image_name = image.split('/')[-1] + uuid4()[:3]
+
+                if face_img.size == 0:
+                    continue
+                # filter blurry face
+                if variance_of_laplacian(face_img) < MIN_BLUR:
+                    continue
+
+                if shape != None:
+                    assert isinstance(shape, int)
+                    face_img = cv2.resize(face_img, (shape, shape))
+                points = get_81_points(face_img, model_name)
+                try:
+                    assert len(points) == PTS
+                except:
+                    print("face landmarks is not 81")
+                    continue
+                if points_are_valid(points, face_img) is False:
+                    counter['invalid_face'] += 1
+                    print('points are out of image')
+                    continue
+
+                for point in points:
+                    cv2.circle(face_img, (int(point[0]), int(point[1])), 2,
+                               (0, 255, 0), -1, cv2.LINE_AA)
+
+                cv2.imwrite(
+                    os.path.join('landmark_image',
+                                 image.split('/')[-1]), face_img)
+                points = normalize_points(face_img, points)
+                face_images.append(face_img)
+                landmarks.append(points)
+                fnames.append(image_name)
+
+        else:
+            points = get_81_points(img, model_name)
             try:
                 assert len(points) == PTS
             except:
                 print("face landmarks is not 81")
                 continue
-            if points_are_valid(points, face_img) is False:
-                counter['invalid_face'] += 1
-                print('points are out of image')
-                continue
 
-            points = normalize_points(face_img, points)
-            face_images.append(face_img)
-            landmarks.append(points)
+            for point in points:
+                cv2.circle(img, (int(point[0]), int(point[1])), 3, (0, 255, 0),
+                           -1, cv2.LINE_AA)
+
+                cv2.imwrite(
+                    os.path.join('landmark_image',
+                                 image.split('/')[-1]), img)
+                # points = normalize_points(img, points)
+                # face_images.append(img)
+                # landmarks.append(points)
+            fnames.append(image.split('/')[-1])
+
     LogManager.info('invalid_face:{}'.format(counter.values()))
     face_images = np.array(face_images)
     landmarks = np.array(landmarks)
 
-    return face_images, landmarks
+    return face_images, landmarks, fnames
 
 
 def baseline(images, detector, score_predictor, shape=None):
@@ -162,7 +211,12 @@ def baseline(images, detector, score_predictor, shape=None):
     return face_images, landmarks
 
 
-def pickeld(save_path, face_images, landmarks, bin_num=None):
+def pickeld(save_path,
+            save_file_name,
+            face_images,
+            landmarks,
+            fnames,
+            bin_num=None):
     assert os.path.isdir(save_path)
     total_num = len(face_images)
     samples_per_bin = total_num / bin_num
@@ -173,16 +227,17 @@ def pickeld(save_path, face_images, landmarks, bin_num=None):
         if end <= total_num:
             dic = {
                 'data': face_images[start:end, :],
-                'landmarks': landmarks[start:end]
+                'landmarks': landmarks[start:end],
+                'filenames': fnames[start:end]
             }
         else:
             dic = {
                 'data': face_images[start:, :],
-                'landmarks': landmarks[start:]
+                'landmarks': landmarks[start:],
+                'filenames': fnames[start:]
             }
 
-        with open(os.path.join(path, save_path, 'less_train_image'),
-                  'wb') as f:
+        with open(os.path.join(path, save_path, save_file_name), 'wb') as f:
             cPickle.dump(dic, f)
 
 
@@ -193,7 +248,7 @@ def main():
     # face_images, landmarks = baseline(
     #     data_path, detector, score_predictor, shape=IMG_SIZE)
 
-    pickeld(save_path, face_images, landmarks, 1)
+    # pickeld(save_path, save_file_name, face_images, landmarks, fnames, 1)
 
     # for i, face_img in enumerate(face_images):
     #     draw_landmak_point(face_img, [[px * IMG_SIZE, py * IMG_SIZE]
