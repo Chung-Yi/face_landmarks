@@ -38,7 +38,7 @@ def main():
         if not os.path.isfile('./face_images' + img_name):
             cv2.imwrite('./face_images/' + img_name, face)
         else:
-            cv2.imwrite('./face_images/' + img_name + uuid4()[:3], face)
+            cv2.imwrite('./face_images/' + img_name + str(uuid4())[:3], face)
 
 
 if __name__ == "__main__":
