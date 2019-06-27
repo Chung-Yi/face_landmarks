@@ -1,6 +1,7 @@
 import os
 import cv2
 import glob
+import multiprocessing as mp
 import _pickle as cPickle
 import face_recognition as fr
 from utils import *
@@ -17,7 +18,7 @@ parser.add_argument(
     '--save_file_name', default="train_image", help='bin file name')
 args = parser.parse_args()
 
-IMG_SIZE = 300
+IMG_SIZE = 200
 MIN_BLUR = 50
 SSD_THR = 0.6
 SCORE_THR = 0.5
@@ -46,25 +47,13 @@ def fr_read_images(data_path, shape=None):
     landmarks = []
     locs = []
     counter = {'invalid_face': 0}
+
     for image in glob.glob(os.path.join(data_path, '*.jpg')):
 
         img = cv2.imread(image, cv2.IMREAD_UNCHANGED)
         if img is None:
             continue
         img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-
-        # points = get_81_points(img, model_name)
-        # try:
-        #     assert len(points) == PTS
-        # except:
-        #     print("face landmarks is not 81")
-        #     continue
-
-        # for point in points:
-        #     cv2.circle(img, (int(point[0]), int(point[1])), 2, (0, 255, 0), -1,
-        #                cv2.LINE_AA)
-
-        # cv2.imwrite(os.path.join('landmark_image', image.split('/')[-1]), img)
 
         if data_path != 'face_images':
             #if there is face in an image
@@ -95,9 +84,6 @@ def fr_read_images(data_path, shape=None):
 
                 if face_img.size == 0:
                     continue
-                # filter blurry face
-                if variance_of_laplacian(face_img) < MIN_BLUR:
-                    continue
 
                 if shape == None:
                     assert isinstance(shape, int)
@@ -105,26 +91,22 @@ def fr_read_images(data_path, shape=None):
 
                 face_img = cv2.resize(face_img, (shape, shape))
                 points = get_81_points(face_img, model_name)
-                try:
-                    assert len(points) == PTS
-                except:
-                    print("face landmarks is not 81")
-                    LogManager().info(
-                        "{}: face landmarks is not 81".format(image))
+                if points == None:
                     continue
+
+                # try:
+                #     assert len(points) == PTS
+                # except:
+                #     print("face landmarks is not 81")
+                #     LogManager().info(
+                #         "{}: face landmarks is not 81".format(image))
+                #     continue
                 if points_are_valid(points, face_img) is False:
                     print('points are out of image')
                     LogManager().info(
                         "{}: points are out of image".format(image))
                     continue
 
-                # for point in points:
-                #     cv2.circle(face_img, (int(point[0]), int(point[1])), 2,
-                #                (0, 255, 0), -1, cv2.LINE_AA)
-
-                # cv2.imwrite(
-                #     os.path.join('landmark_image',
-                #  image.split('/')[-1]), face_img)
                 points = normalize_points(face_img, points)
                 face_images.append(face_img)
                 landmarks.append(points)
@@ -137,26 +119,17 @@ def fr_read_images(data_path, shape=None):
 
             face_img = cv2.resize(img, (shape, shape))
             points = get_81_points(face_img, model_name)
-            try:
-                assert len(points) == PTS
-            except:
-                counter['invalid_face'] += 1
-                print("face landmarks is not 81")
-                LogManager().info("{}: face landmarks is not 81".format(image))
+            if points == None:
+                LogManager().info("{}: points is None".format(image))
                 continue
-            if points_are_valid(points, face_img) is False:
-                counter['invalid_face'] += 1
-                print('points are out of image')
-                LogManager().info("{}: points are out of image".format(image))
-                continue
+            LogManager().info("{}: is finished".format(image))
 
-            # for point in points:
-            #     cv2.circle(img, (int(point[0]), int(point[1])), 3, (0, 255, 0),
-            #                -1, cv2.LINE_AA)
+            # if points_are_valid(points, face_img) is False:
+            #     counter['invalid_face'] += 1
+            #     print('points are out of image')
+            #     LogManager().info("{}: points are out of image".format(image))
+            #     continue
 
-            # cv2.imwrite(
-            #     os.path.join('landmark_image',
-            #                     image.split('/')[-1]), img)
             points = normalize_points(face_img, points)
             face_images.append(face_img)
             landmarks.append(points)
