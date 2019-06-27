@@ -3,8 +3,8 @@ import os
 
 
 def main():
-    buckets_image_files = glob.glob("buckets/**/*.jpg")
-    image_files = glob.glob("images/*.jpg")
+    buckets_image_files = glob.glob("landmark_image/*.jpg")
+    image_files = glob.glob("face_images/*.jpg")
     images_name = []
     buckets_image_name = []
 
@@ -21,7 +21,7 @@ def main():
     s3 = s2.difference(s1)
 
     for image in s3:
-        os.remove(os.path.join('images', image))
+        os.remove(os.path.join('face_images', image))
 
 
 if __name__ == "__main__":
