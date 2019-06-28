@@ -94,13 +94,14 @@ def fr_read_images(data_path, shape=None):
                 if points == None:
                     continue
 
-                # try:
-                #     assert len(points) == PTS
-                # except:
-                #     print("face landmarks is not 81")
-                #     LogManager().info(
-                #         "{}: face landmarks is not 81".format(image))
-                #     continue
+                try:
+                    assert len(points) == PTS
+                except:
+                    print("face landmarks is not 81")
+                    LogManager().info(
+                        "{}: face landmarks is not 81".format(image))
+                    continue
+
                 if points_are_valid(points, face_img) is False:
                     print('points are out of image')
                     LogManager().info(
@@ -124,11 +125,18 @@ def fr_read_images(data_path, shape=None):
                 continue
             LogManager().info("{}: is finished".format(image))
 
-            # if points_are_valid(points, face_img) is False:
-            #     counter['invalid_face'] += 1
-            #     print('points are out of image')
-            #     LogManager().info("{}: points are out of image".format(image))
-            #     continue
+            try:
+                assert len(points) == PTS
+            except:
+                print("face landmarks is not 81")
+                LogManager().info("{}: face landmarks is not 81".format(image))
+                continue
+
+            if points_are_valid(points, face_img) is False:
+                counter['invalid_face'] += 1
+                print('points are out of image')
+                LogManager().info("{}: points are out of image".format(image))
+                continue
 
             points = normalize_points(face_img, points)
             face_images.append(face_img)
