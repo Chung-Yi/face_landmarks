@@ -3,19 +3,101 @@ import os
 import timeit
 import face_recognition as fr
 from utils import *
-from process_data import cut_face
 from keras.models import load_model
+from argparse import ArgumentParser
 
-model_name = 'models/shape_predictor_81_face_landmarks.dat'
+parser = ArgumentParser()
+parser.add_argument('--model_name', default='cnn', help='choose a model')
+args = parser.parse_args()
+
+model_name = args.model_name
+
+path = os.path.abspath(os.path.dirname(__file__))
+model1_name = os.path.join(path, 'models/cnn_0625_200.h5')
+model2_name = os.path.join(path,
+                           'models/shape_predictor_81_face_landmarks.dat')
+
+
+class Face:
+    def __init__(self, model1_name, model2_name):
+        self.model1 = load_model(model1_name)
+        self.model2 = model2_name
+
+    def face_landmark(self, face_img, face_image, model_name):
+
+        if 'cnn' in model_name:
+            points = self.model1.predict(face_img)
+            points = np.reshape(points, (-1, 2)) * 200
+        else:
+            points = get_81_points(face_image, self.model2)
+            points = np.array(points).astype('float32')
+
+        return points
+
+    def head_pose(self, points, face_image):
+        # 2D image points
+        image_points = np.array([
+            (points[33][0], points[33][1]),  # nose tip
+            (points[8][0], points[8][1]),  # chin
+            (points[45][0], points[45][1]),  # left eye
+            (points[36][0], points[36][1]),  # right eye
+            (points[54][0], points[54][1]),  # left mouth
+            (points[48][0], points[48][1]),  # right mouth
+        ])
+
+        # 3D model points.
+        model_points = np.array([
+            (0.0, 0.0, 0.0),  # Nose tip
+            (0.0, -330.0, -65.0),  # Chin
+            (-225.0, 170.0, -135.0),  # Left eye left corner
+            (225.0, 170.0, -135.0),  # Right eye right corne
+            (-150.0, -150.0, -125.0),  # Left Mouth corner
+            (150.0, -150.0, -125.0)  # Right mouth corner
+        ])
+
+        # camera internals
+        width = face_image.shape[1]
+        height = face_image.shape[0]
+        focal_length = width
+        center = (width / 2, height / 2)
+        camera_matrix = np.array([[focal_length, 0, center[0]],
+                                  [0, focal_length, center[1]], [0, 0, 1]])
+
+        print("Camera Matrix :\n {0}".format(camera_matrix))
+
+        dist_coeffs = np.zeros((4, 1))  # Assuming no lens distortion
+        (success, rotation_vector, translation_vector) = cv2.solvePnP(
+            model_points,
+            image_points,
+            camera_matrix,
+            dist_coeffs,
+            flags=cv2.SOLVEPNP_ITERATIVE)
+
+        print("Rotation Vector:\n {0}".format(rotation_vector))
+        print("Translation Vector:\n {0}".format(translation_vector))
+
+        # Project a 3D point (0, 0, 1000.0) onto the image plane.
+        (nose_end_point2D, jacobian) = cv2.projectPoints(
+            np.array([(0.0, 0.0, 1000.0)]), rotation_vector,
+            translation_vector, camera_matrix, dist_coeffs)
+        for p in image_points:
+            cv2.circle(face_image, (int(p[0]), int(p[1])), 2, (0, 0, 255), -1)
+
+        p1 = (int(image_points[0][0]), int(image_points[0][1]))
+        p2 = (int(nose_end_point2D[0][0][0]), int(nose_end_point2D[0][0][1]))
+
+        cv2.line(face_image, p1, p2, (255, 0, 0), 2)
+
+        cv2.imshow('output', face_image)
+        cv2.waitKey(0)
+        cv2.destroyAllWindows()
 
 
 def main():
     # pts = os.path.join(path, 'l.pts')
-    model = load_model('models/cnn_0625_asian.h5')
-    path = os.path.abspath(os.path.dirname(__file__))
-    image = os.path.join(path, 'liann.jpg')
+    image = os.path.join(path, 'm.jpg')
     image = cv2.imread(image)
-    image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
+    # image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
 
     locations = fr.face_locations(image)
     locs = []
@@ -30,75 +112,26 @@ def main():
 
         if face_img.size == 0:
             continue
-        # filter blurry face
-        # if variance_of_laplacian(face_img) < MIN_BLUR:
-        #     continue
 
-        # if shape != None:
-        #     assert isinstance(shape, int)
-        #     face_img = cv2.resize(face_img, (shape, shape))
-        # points = get_81_points(face_img, model_name)
-        # try:
-        #     assert len(points) == PTS
-        # except:
-        #     print("face landmarks is not 81")
-        #     continue
-        # if points_are_valid(points, face_img) is False:
-        #     counter['invalid_face'] += 1
-        #     print('points are out of image')
-        #     continue
-        f = cv2.cvtColor(face_img, cv2.COLOR_BGR2RGB)
+        # f = cv2.cvtColor(face_img, cv2.COLOR_BGR2RGB)
+        f = Face(model1_name, model2_name)
         face_image = cv2.resize(face_img, (200, 200))
         face_img = np.reshape(face_image, (1, 200, 200, 3))
         face_img = face_img.astype('float32') / 255
+
         start = timeit.default_timer()
-        points = model.predict(face_img)
+        points = f.face_landmark(face_img, face_image, model_name)
         end = timeit.default_timer()
         print(end - start)
-        points = np.reshape(points, (-1, 2)) * 200
+        # points = np.reshape(points, (-1, 2)) * 200
         # points = scaled_points(image, points, locs)
         draw_landmak_point(face_image, points)
 
-        # if face_img.size == 0:
-        #     continue
-        # # filter blurry face
-        # if variance_of_laplacian(face_img) < MIN_BLUR:
-        #     continue
-
-        # if shape != None:
-        #     assert isinstance(shape, int)
-        #     face_img = cv2.resize(face_img, (shape, shape))
-        # points = get_81_points(face_img, model_name)
-        # try:
-        #     assert len(points) == PTS
-        # except:
-        #     print("face landmarks is not 81")
-        #     continue
-        # if points_are_valid(points, face_img) is False:
-        #     counter['invalid_face'] += 1
-        #     print('points are out of image')
-        #     continue
-
-        # for point in points:
-        #     cv2.circle(face_img, (int(point[0]), int(point[1])), 2,
-        #                (0, 255, 0), -1, cv2.LINE_AA)
-
-        face_image = cv2.cvtColor(face_image, cv2.COLOR_BGR2RGB)
-        # image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
         cv2.imshow('My Image', face_image)
         cv2.waitKey(0)
         cv2.destroyAllWindows()
 
-    # face_img = cv2.resize(face_img, (200, 200))
-    # face_img = np.reshape(face_img, (1, 200, 200, 3))
-    # face_img = face_img.astype('float32') / 255
-
-    # pts = os.path.join(path, 'l.pts')
-    # model_name = os.path.join(path,
-    #                           'models/shape_predictor_81_face_landmarks.dat')
-    # 68 points
-    # points = get_68_points(pts)
-    # draw_landmak_point(image, points)
+        f.head_pose(points, face_image)
 
     #81 points
     start = timeit.default_timer()
