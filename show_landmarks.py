@@ -13,7 +13,7 @@ args = parser.parse_args()
 model_name = args.model_name
 
 path = os.path.abspath(os.path.dirname(__file__))
-model1_name = os.path.join(path, 'models/cnn_0625_200.h5')
+model1_name = os.path.join(path, 'models/cnn_0628.h5')
 model2_name = os.path.join(path,
                            'models/shape_predictor_81_face_landmarks.dat')
 
@@ -26,7 +26,10 @@ class Face:
     def face_landmark(self, face_img, face_image, model_name):
 
         if 'cnn' in model_name:
+            start = timeit.default_timer()
             points = self.model1.predict(face_img)
+            end = timeit.default_timer()
+            print(end - start)
             points = np.reshape(points, (-1, 2)) * 200
         else:
             points = get_81_points(face_image, self.model2)
@@ -95,7 +98,7 @@ class Face:
 
 def main():
     # pts = os.path.join(path, 'l.pts')
-    image = os.path.join(path, 'm.jpg')
+    image = os.path.join(path, 'a.jpg')
     image = cv2.imread(image)
     # image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
 
@@ -119,12 +122,12 @@ def main():
         face_img = np.reshape(face_image, (1, 200, 200, 3))
         face_img = face_img.astype('float32') / 255
 
-        start = timeit.default_timer()
+        # start = timeit.default_timer()
         points = f.face_landmark(face_img, face_image, model_name)
-        end = timeit.default_timer()
-        print(end - start)
-        # points = np.reshape(points, (-1, 2)) * 200
-        # points = scaled_points(image, points, locs)
+
+        # end = timeit.default_timer()
+        # print(end - start)
+
         draw_landmak_point(face_image, points)
 
         cv2.imshow('My Image', face_image)
@@ -132,24 +135,6 @@ def main():
         cv2.destroyAllWindows()
 
         f.head_pose(points, face_image)
-
-    #81 points
-    start = timeit.default_timer()
-    points = get_81_points(image, model_name)
-    end = timeit.default_timer()
-    print(end - start)
-    draw_landmak_point(image, points)
-
-    # cnn model
-    # model = load_model('models/cnn_0619.h5')
-    # points = model.predict(face_img)
-    # points = np.reshape(points, (-1, 2))
-    # points = scaled_points(image, points)
-    # draw_landmak_point(image, points)
-
-    cv2.imshow('My Image', image)
-    cv2.waitKey(0)
-    cv2.destroyAllWindows()
 
 
 if __name__ == '__main__':
