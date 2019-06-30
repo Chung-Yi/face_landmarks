@@ -5,6 +5,7 @@ import face_recognition as fr
 from utils import *
 from keras.models import load_model
 from argparse import ArgumentParser
+from imutils.face_utils import FaceAligner
 
 parser = ArgumentParser()
 parser.add_argument('--model_name', default='cnn', help='choose a model')
@@ -96,11 +97,30 @@ class Face:
         cv2.destroyAllWindows()
 
 
+def face_remap(shape):
+    remapped_image = shape.copy()
+    remapped_image[17] = shape[78]
+    remapped_image[18] = shape[74]
+    remapped_image[19] = shape[79]
+    remapped_image[20] = shape[73]
+    remapped_image[21] = shape[72]
+    remapped_image[22] = shape[80]
+    remapped_image[23] = shape[71]
+    remapped_image[24] = shape[70]
+    remapped_image[25] = shape[69]
+    remapped_image[26] = shape[68]
+    remapped_image[27] = shape[76]
+    remapped_image[28] = shape[75]
+    remapped_image[29] = shape[77]
+    remapped_image[30] = shape[0]
+
+    return remapped_image
+
+
 def main():
-    # pts = os.path.join(path, 'l.pts')
-    image = os.path.join(path, 'a.jpg')
+
+    image = os.path.join(path, 'm.jpg')
     image = cv2.imread(image)
-    # image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
 
     locations = fr.face_locations(image)
     locs = []
@@ -122,14 +142,24 @@ def main():
         face_img = np.reshape(face_image, (1, 200, 200, 3))
         face_img = face_img.astype('float32') / 255
 
-        # start = timeit.default_timer()
         points = f.face_landmark(face_img, face_image, model_name)
 
-        # end = timeit.default_timer()
-        # print(end - start)
+        #initialize mask array
+        points_int = np.array([[int(p[0]), int(p[1])] for p in points])
+        remapped_shape = np.zeros_like(points)
+        out_face = np.zeros_like(face_image)
+        feature_mask = np.zeros((face_image.shape[0], face_image.shape[1]))
+
+        remapped_shape = face_remap(points_int)
+        remapped_shape = cv2.convexHull(points_int)
+
+        cv2.fillConvexPoly(feature_mask, remapped_shape[0:31], 1)
+        feature_mask = feature_mask.astype(np.bool)
+        out_face[feature_mask] = face_image[feature_mask]
+        cv2.imshow("mask_inv", out_face)
+        cv2.imwrite("out_face.png", out_face)
 
         draw_landmak_point(face_image, points)
-
         cv2.imshow('My Image', face_image)
         cv2.waitKey(0)
         cv2.destroyAllWindows()
