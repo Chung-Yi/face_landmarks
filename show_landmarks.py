@@ -1,11 +1,14 @@
 import cv2
 import os
+import sys
+import glob
 import timeit
+import imutils
 import face_recognition as fr
 from utils import *
 from keras.models import load_model
 from argparse import ArgumentParser
-from imutils.face_utils import FaceAligner
+from collections import OrderedDict
 
 parser = ArgumentParser()
 parser.add_argument('--model_name', default='cnn', help='choose a model')
@@ -119,10 +122,21 @@ def face_remap(shape):
 
 def main():
 
-    image = os.path.join(path, 'm.jpg')
+    FACIAL_LANDMARKS_IDXS = OrderedDict([("mouth", (48, 68)),
+                                         ("right_eyebrow", (17, 22)),
+                                         ("left_eyebrow", (22, 27)),
+                                         ("right_eye", (36, 42)),
+                                         ("left_eye", (42, 48)),
+                                         ("nose", (27, 36))])
+
+    image = os.path.join(path, 'a.jpg')
     image = cv2.imread(image)
 
-    locations = fr.face_locations(image)
+    try:
+        locations = fr.face_locations(image)
+    except:
+        sys.exit(0)
+
     locs = []
 
     for loc in locations:
@@ -136,7 +150,6 @@ def main():
         if face_img.size == 0:
             continue
 
-        # f = cv2.cvtColor(face_img, cv2.COLOR_BGR2RGB)
         f = Face(model1_name, model2_name)
         face_image = cv2.resize(face_img, (200, 200))
         face_img = np.reshape(face_image, (1, 200, 200, 3))
@@ -144,7 +157,18 @@ def main():
 
         points = f.face_landmark(face_img, face_image, model_name)
 
-        #initialize mask array
+        for (name, (i, j)) in FACIAL_LANDMARKS_IDXS.items():
+            clone = face_image.copy()
+            cv2.putText(clone, name, (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7,
+                        (0, 0, 255), 2)
+            (x, y, w, h) = cv2.boundingRect(points[i:j])
+            roi = face_image[y:y + h, x:x + w]
+            roi = imutils.resize(roi, width=250, inter=cv2.INTER_CUBIC)
+            cv2.imshow("ROI", roi)
+            # cv2.imshow("Image", clone)
+            cv2.waitKey(0)
+
+        #initialize mask array and draw mask image
         points_int = np.array([[int(p[0]), int(p[1])] for p in points])
         remapped_shape = np.zeros_like(points)
         out_face = np.zeros_like(face_image)
