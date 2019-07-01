@@ -48,14 +48,17 @@ def fr_read_images(data_path, shape=None):
     locs = []
     counter = {'invalid_face': 0}
 
-    for image in glob.glob(os.path.join(data_path, '*.jpg')):
+    if 'face_images' not in data_path:
 
-        img = cv2.imread(image, cv2.IMREAD_UNCHANGED)
-        if img is None:
-            continue
-        img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+        for image in glob.glob(os.path.join(data_path, '*.jpg')):
 
-        if data_path != 'face_images':
+            img = cv2.imread(image, cv2.IMREAD_UNCHANGED)
+
+            if img is None:
+                continue
+
+            img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+
             #if there is face in an image
             try:
                 locations = fr.face_locations(img)
@@ -114,34 +117,46 @@ def fr_read_images(data_path, shape=None):
                 fnames.append(image_name)
 
         else:
-            if shape == None:
-                assert isinstance(shape, int)
-                shape = IMG_SIZE
 
-            face_img = cv2.resize(img, (shape, shape))
-            points = get_81_points(face_img, model_name)
-            if points == None:
-                LogManager().info("{}: points is None".format(image))
-                continue
-            LogManager().info("{}: is finished".format(image))
+            for image in glob.glob(os.path.join(data_path, '*.jpg')):
 
-            try:
-                assert len(points) == PTS
-            except:
-                print("face landmarks is not 81")
-                LogManager().info("{}: face landmarks is not 81".format(image))
-                continue
+                img = cv2.imread(image, cv2.IMREAD_UNCHANGED)
 
-            if points_are_valid(points, face_img) is False:
-                counter['invalid_face'] += 1
-                print('points are out of image')
-                LogManager().info("{}: points are out of image".format(image))
-                continue
+                if img is None:
+                    continue
 
-            points = normalize_points(face_img, points)
-            face_images.append(face_img)
-            landmarks.append(points)
-            fnames.append(image.split('/')[-1])
+                img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+
+                if shape == None:
+                    assert isinstance(shape, int)
+                    shape = IMG_SIZE
+
+                face_img = cv2.resize(img, (shape, shape))
+                points = get_81_points(face_img, model_name)
+                if points == None:
+                    LogManager().info("{}: points is None".format(image))
+                    continue
+                LogManager().info("{}: is finished".format(image))
+
+                try:
+                    assert len(points) == PTS
+                except:
+                    print("face landmarks is not 81")
+                    LogManager().info(
+                        "{}: face landmarks is not 81".format(image))
+                    continue
+
+                if points_are_valid(points, face_img) is False:
+                    counter['invalid_face'] += 1
+                    print('points are out of image')
+                    LogManager().info(
+                        "{}: points are out of image".format(image))
+                    continue
+
+                points = normalize_points(face_img, points)
+                face_images.append(face_img)
+                landmarks.append(points)
+                fnames.append(image.split('/')[-1])
 
     LogManager.info('invalid_face:{}'.format(counter.values()))
     face_images = np.array(face_images)
