@@ -9,6 +9,7 @@ from utils import *
 from keras.models import load_model
 from argparse import ArgumentParser
 from collections import OrderedDict
+from skin_detect import detect
 
 parser = ArgumentParser()
 parser.add_argument('--model_name', default='cnn', help='choose a model')
@@ -26,6 +27,10 @@ class Face:
     def __init__(self, model1_name, model2_name):
         self.model1 = load_model(model1_name)
         self.model2 = model2_name
+        self.eye_cascade = cv2.CascadeClassifier('haarcascade_eye.xml')
+        self.mouth_cascade = cv2.CascadeClassifier('haarcascade_mcs_mouth.xml')
+        self.lower = np.array([108, 23, 83], dtype='uint8')
+        self.upper = np.array([175, 255, 255], dtype='uint8')
 
     def face_landmark(self, face_img, face_image, model_name):
 
@@ -99,6 +104,18 @@ class Face:
         cv2.waitKey(0)
         cv2.destroyAllWindows()
 
+    def detect(self, face_image):
+        converted = cv2.cvtColor(face_image, cv2.COLOR_BGR2HSV)
+        skinmask = cv2.inRange(converted, self.lower, self.upper)
+
+        kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (1, 1))
+        skinmask = cv2.erode(skinmask, kernel, iterations=2)
+        skinmask = cv2.dilate(skinmask, kernel, iterations=2)
+
+        skinmask = cv2.GaussianBlur(skinmask, (3, 3), 0)
+        skin = cv2.bitwise_and(face_image, face_image, mask=skinmask)
+        return skin
+
 
 def face_remap(shape):
     remapped_image = shape.copy()
@@ -129,7 +146,7 @@ def main():
                                          ("left_eye", (42, 48)),
                                          ("nose", (27, 36))])
 
-    image = os.path.join(path, 'a.jpg')
+    image = os.path.join(path, 'curry.jpg')
     image = cv2.imread(image)
 
     try:
@@ -152,26 +169,47 @@ def main():
 
         f = Face(model1_name, model2_name)
         face_image = cv2.resize(face_img, (200, 200))
+        face = face_image.copy()
         face_img = np.reshape(face_image, (1, 200, 200, 3))
         face_img = face_img.astype('float32') / 255
 
         points = f.face_landmark(face_img, face_image, model_name)
 
-        for (name, (i, j)) in FACIAL_LANDMARKS_IDXS.items():
-            clone = face_image.copy()
-            cv2.putText(clone, name, (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7,
-                        (0, 0, 255), 2)
-            (x, y, w, h) = cv2.boundingRect(points[i:j])
-            roi = face_image[y:y + h, x:x + w]
-            roi = imutils.resize(roi, width=250, inter=cv2.INTER_CUBIC)
-            cv2.imshow("ROI", roi)
-            # cv2.imshow("Image", clone)
-            cv2.waitKey(0)
+        eye_l_x1 = int(points[42][0])
+        eye_l_x2 = int(points[45][0])
+        eye_l_y1 = int(
+            min(points[42][1], points[43][1], points[44][1], points[45][1]))
+        eye_l_y2 = int(
+            max(points[42][1], points[47][1], points[46][1], points[45][1]))
+
+        eye_l_img = face_image[eye_l_y1:eye_l_y2, eye_l_x1:eye_l_x2]
+
+        eye_r_x1 = int(points[36][0])
+        eye_r_x2 = int(points[39][0])
+        eye_r_y1 = int(
+            min(points[36][1], points[37][1], points[38][1], points[39][1]))
+        eye_r_y2 = int(
+            max(points[39][1], points[41][1], points[40][1], points[36][1]))
+
+        eye_l_img = face_image[eye_l_y1:eye_l_y2, eye_l_x1:eye_l_x2]
+        eye_r_img = face_image[eye_r_y1:eye_r_y2, eye_r_x1:eye_r_x2]
+
+        draw_landmak_point(face, points)
+        cv2.imshow('landmark', face)
+        cv2.waitKey(0)
+
+        cv2.imwrite('eye_left.jpg', eye_l_img)
+        cv2.imshow('eye_left', eye_l_img)
+        cv2.waitKey(0)
+
+        cv2.imwrite('eye_right.jpg', eye_r_img)
+        cv2.imshow('eye_right', eye_r_img)
+        cv2.waitKey(0)
 
         #initialize mask array and draw mask image
         points_int = np.array([[int(p[0]), int(p[1])] for p in points])
         remapped_shape = np.zeros_like(points)
-        out_face = np.zeros_like(face_image)
+        landmark_face = np.zeros_like(face_image)
         feature_mask = np.zeros((face_image.shape[0], face_image.shape[1]))
 
         remapped_shape = face_remap(points_int)
@@ -179,16 +217,18 @@ def main():
 
         cv2.fillConvexPoly(feature_mask, remapped_shape[0:31], 1)
         feature_mask = feature_mask.astype(np.bool)
-        out_face[feature_mask] = face_image[feature_mask]
-        cv2.imshow("mask_inv", out_face)
-        cv2.imwrite("out_face.png", out_face)
+        landmark_face[feature_mask] = face_image[feature_mask]
+        cv2.imshow("mask_inv", landmark_face)
+        # cv2.imwrite("out_face.png", landmark_face)
+
+        skin = f.detect(face_image)
 
         draw_landmak_point(face_image, points)
-        cv2.imshow('My Image', face_image)
+        cv2.imshow('My Image', np.hstack([landmark_face, skin]))
         cv2.waitKey(0)
         cv2.destroyAllWindows()
 
-        f.head_pose(points, face_image)
+        # f.head_pose(points, face_image)
 
 
 if __name__ == '__main__':
