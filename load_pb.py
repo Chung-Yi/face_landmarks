@@ -28,7 +28,8 @@ class FaceLandmark():
     def predict(self, face_image):
         face_img = np.reshape(face_image, (1, 200, 200, 3))
         face_img = face_img.astype('float32') / 255
-
+        self.sess.run(
+            self.output_points, feed_dict={self.input_images: face_img})
         start = timeit.default_timer()
         points = self.sess.run(
             self.output_points, feed_dict={self.input_images: face_img})
