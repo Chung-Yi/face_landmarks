@@ -31,7 +31,6 @@ model_name = os.path.join(path, 'models/shape_predictor_81_face_landmarks.dat')
 
 
 def save_face(face_img, image):
-    print(image)
     cv2.imwrite(
         os.path.join(data_path + '_face',
                      image.split('/')[-1]), face_img)
@@ -49,18 +48,24 @@ def save_landmark(face_img, points, image):
 
 
 def main():
-    rmtree(data_path + '_face')
-    pool = mp.Pool()
+    if os.path.isdir(data_path + '_face'):
+        rmtree(data_path + '_face')
+
     os.mkdir(data_path + '_face')
+
+    pool = mp.Pool()
     counter = {'invalid_face': 0}
 
     for image in glob.glob(os.path.join(data_path, '*.jpg')):
 
         img = cv2.imread(image, cv2.IMREAD_UNCHANGED)
+
         if img is None:
             continue
 
-        if data_path != 'face_images':
+        img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+
+        if 'face_images' not in data_path:
 
             #if there is face in an image
             try:
@@ -90,8 +95,6 @@ def main():
                     uuid4())[:3]
                 image_name = image_name + '.jpg'
 
-                pool.apply_async(save_face, (face_img, image_name))
-
                 if face_img.size == 0:
                     continue
 
@@ -105,6 +108,9 @@ def main():
                         "{}: points are out of image".format(image))
                     continue
 
+                face_img = cv2.cvtColor(face_img, cv2.COLOR_RGB2BGR)
+
+                pool.apply_async(save_face, (face_img, image_name))
                 pool.apply_async(save_landmark, (
                     face_img,
                     points,
@@ -123,8 +129,7 @@ def main():
                 LogManager().info("{}: points are out of image".format(image))
                 continue
 
-            img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-
+            img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
             pool.apply_async(save_landmark, (
                 img,
                 points,

@@ -14,7 +14,7 @@ parser.add_argument('--folder_path', help='choose a image folder')
 args = parser.parse_args()
 
 path = os.path.abspath(os.path.dirname(__file__))
-model_name = os.path.join(path, 'models/cnn_0628.h5')
+model_name = os.path.join(path, 'models/cnn_0701.h5')
 data_path = args.folder_path
 
 

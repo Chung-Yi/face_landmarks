@@ -4,6 +4,7 @@ import sys
 import glob
 import timeit
 import imutils
+import numpy as np
 import face_recognition as fr
 from utils import *
 from keras.models import load_model
@@ -254,7 +255,7 @@ def main():
                                          ("left_eye", (42, 48)),
                                          ("nose", (27, 36))])
 
-    image = os.path.join(path, 'a.jpg')
+    image = os.path.join(path, '2500.jpg')
     image = cv2.imread(image)
 
     try:
@@ -303,26 +304,69 @@ def main():
         eye_l_img = face_image[eye_l_y1:eye_l_y2, eye_l_x1:eye_l_x2]
         eye_r_img = face_image[eye_r_y1:eye_r_y2, eye_r_x1:eye_r_x2]
 
-        draw_landmak_point(face, points)
-        cv2.imshow('landmark', face)
-        cv2.waitKey(0)
+        eye_l_area = eye_l_img.shape[0] * eye_l_img.shape[1]
+        eye_l_gray = cv2.cvtColor(eye_l_img, cv2.COLOR_BGR2GRAY)
+        eye_l_occ = np.count_nonzero(eye_l_gray < 50) / eye_l_area
 
-        cv2.imwrite('eye_left.jpg', eye_l_img)
-        cv2.imshow('eye_left', eye_l_img)
-        cv2.waitKey(0)
+        eye_r_area = eye_r_img.shape[0] * eye_r_img.shape[1]
+        eye_r_gray = cv2.cvtColor(eye_r_img, cv2.COLOR_BGR2GRAY)
+        eye_r_occ = np.count_nonzero(eye_r_gray < 50) / eye_r_area
 
-        cv2.imwrite('eye_right.jpg', eye_r_img)
-        cv2.imshow('eye_right', eye_r_img)
-        cv2.waitKey(0)
+        if eye_l_occ > 0.25 and eye_r_occ > 0.25:
+            draw_landmak_point(face, points)
+            cv2.imshow('landmark', face)
+            cv2.waitKey(0)
 
-        landmark_face = crop_landmark_face(points, face_image)
+            cv2.imwrite('eye_left.jpg', eye_l_img)
+            cv2.imshow('eye_left', eye_l_img)
+            cv2.waitKey(0)
 
-        skin = f.detect(face_image)
+            cv2.imwrite('eye_right.jpg', eye_r_img)
+            cv2.imshow('eye_right', eye_r_img)
+            cv2.waitKey(0)
 
-        draw_landmak_point(face_image, points)
-        cv2.imshow('My Image', np.hstack([landmark_face, skin]))
-        cv2.waitKey(0)
-        cv2.destroyAllWindows()
+            landmark_face = crop_landmark_face(points, face_image)
+
+            skin = f.detect(face_image)
+
+            draw_landmak_point(face_image, points)
+            cv2.imshow('My Image', np.hstack([landmark_face, skin]))
+            cv2.waitKey(0)
+            cv2.destroyAllWindows()
+        else:
+            draw_landmak_point(face, points)
+            cv2.imshow('landmark', face)
+            cv2.waitKey(0)
+
+            cv2.imwrite('eye_left.jpg', eye_l_img)
+            cv2.imshow('eye_left', eye_l_img)
+            cv2.waitKey(0)
+
+            cv2.imwrite('eye_right.jpg', eye_r_img)
+            cv2.imshow('eye_right', eye_r_img)
+            cv2.waitKey(0)
+            continue
+
+        # draw_landmak_point(face, points)
+        # cv2.imshow('landmark', face)
+        # cv2.waitKey(0)
+
+        # # cv2.imwrite('eye_left.jpg', eye_l_img)
+        # cv2.imshow('eye_left', eye_l_img)
+        # cv2.waitKey(0)
+
+        # # cv2.imwrite('eye_right.jpg', eye_r_img)
+        # cv2.imshow('eye_right', eye_r_img)
+        # cv2.waitKey(0)
+
+        # landmark_face = crop_landmark_face(points, face_image)
+
+        # skin = f.detect(face_image)
+
+        # draw_landmak_point(face_image, points)
+        # cv2.imshow('My Image', np.hstack([landmark_face, skin]))
+        # cv2.waitKey(0)
+        # cv2.destroyAllWindows()
 
         # f.head_pose(points, face_image)
 
