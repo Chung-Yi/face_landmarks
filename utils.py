@@ -3,6 +3,22 @@ import dlib
 import numpy as np
 
 
+def cut_face(image, locations):
+    face_imgs = []
+
+    for loc in locations:
+        start_x, start_y, end_x, end_y = loc
+        if start_x > 50 and start_y > 50:
+            face_img = image[start_y - 50:end_y + 50, start_x - 50:end_x +
+                             50, :]
+        else:
+            face_img = image[start_y:end_y, start_x:end_x, :]
+
+        face_imgs.append(face_img)
+
+    return face_imgs
+
+
 def get_68_points(file_name=None):
     points = []
     with open(file_name) as file:
