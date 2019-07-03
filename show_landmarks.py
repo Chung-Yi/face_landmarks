@@ -22,6 +22,28 @@ model1_name = os.path.join(path, 'models/cnn_0628.h5')
 model2_name = os.path.join(path,
                            'models/shape_predictor_81_face_landmarks.dat')
 
+gamma = 0.95
+
+Wcb = 46.97
+Wcr = 38.76
+
+WHCb = 14
+WHCr = 10
+WLCb = 23
+WLCr = 20
+
+Ymin = 16
+Ymax = 235
+
+Kl = 125
+Kh = 188
+
+WCb = 0
+WCr = 0
+
+CbCenter = 0
+CrCenter = 0
+
 
 class Face:
     def __init__(self, model1_name, model2_name):
@@ -29,8 +51,8 @@ class Face:
         self.model2 = model2_name
         self.eye_cascade = cv2.CascadeClassifier('haarcascade_eye.xml')
         self.mouth_cascade = cv2.CascadeClassifier('haarcascade_mcs_mouth.xml')
-        self.lower = np.array([108, 23, 83], dtype='uint8')
-        self.upper = np.array([175, 255, 255], dtype='uint8')
+        self.lower = np.array([0, 40, 80], dtype='uint8')
+        self.upper = np.array([20, 255, 255], dtype='uint8')
 
     def face_landmark(self, face_img, face_image, model_name):
 
@@ -137,6 +159,92 @@ def face_remap(shape):
     return remapped_image
 
 
+def crop_landmark_face(points, face_image):
+    #initialize mask array and draw mask image
+    points_int = np.array([[int(p[0]), int(p[1])] for p in points])
+    remapped_shape = np.zeros_like(points)
+    landmark_face = np.zeros_like(face_image)
+    feature_mask = np.zeros((face_image.shape[0], face_image.shape[1]))
+
+    remapped_shape = face_remap(points_int)
+    remapped_shape = cv2.convexHull(points_int)
+
+    cv2.fillConvexPoly(feature_mask, remapped_shape[0:31], 1)
+    feature_mask = feature_mask.astype(np.bool)
+    landmark_face[feature_mask] = face_image[feature_mask]
+    return landmark_face
+
+
+def skin_detect(face_image):
+    rows = face_image.shape[0]
+    cols = face_image.shape[1]
+
+    for r in range(rows):
+        for c in range(cols):
+            # get values of blue, green, red
+            B = face_image.item(r, c, 0)
+            G = face_image.item(r, c, 1)
+            R = face_image.item(r, c, 2)
+            # gamma correction
+            B = int(B**gamma)
+            G = int(G**gamma)
+            R = int(R**gamma)
+
+            # set values of blue, green, red
+            face_image.itemset((r, c, 0), B)
+            face_image.itemset((r, c, 1), G)
+            face_image.itemset((r, c, 2), R)
+
+    # convert color space from rgb to ycbcr
+    imgYcc = cv2.cvtColor(face_image, cv2.COLOR_BGR2YCR_CB)
+
+    # convert color space from bgr to rgb
+    img = cv2.cvtColor(face_image, cv2.COLOR_BGR2RGB)
+
+    # prepare an empty image space
+    imgSkin = np.zeros(img.shape, np.uint8)
+    # copy original image
+    imgSkin = img.copy()
+
+    for r in range(rows):
+        for c in range(cols):
+            skin = 0
+
+            # color space transformation
+
+            # get values from ycbcr color space
+            Y = imgYcc.item(r, c, 0)
+            Cr = imgYcc.item(r, c, 1)
+            Cb = imgYcc.item(r, c, 2)
+
+            if Y < Kl:
+                WCr = WLCr + (Y - Ymin) * (Wcr - WLCr) / (Kl - Ymin)
+                WCb = WLCb + (Y - Ymin) * (Wcb - WLCb) / (Kl - Ymin)
+
+                CrCenter = 154 - (Kl - Y) * (154 - 144) / (Kl - Ymin)
+                CbCenter = 108 + (Kl - Y) * (118 - 108) / (Kl - Ymin)
+
+            elif Y > Kh:
+                WCr = WHCr + (Y - Ymax) * (Wcr - WHCr) / (Ymax - Kh)
+                WCb = WHCb + (Y - Ymax) * (Wcb - WHCb) / (Ymax - Kh)
+
+                CrCenter = 154 + (Y - Kh) * (154 - 132) / (Ymax - Kh)
+                CbCenter = 108 + (Y - Kh) * (118 - 108) / (Ymax - Kh)
+
+            if Y < Kl or Y > Kh:
+                Cr = (Cr - CrCenter) * Wcr / WCr + 154
+                Cb = (Cb - CbCenter) * Wcb / WCb + 108
+
+            if Cb > 77 and Cb < 127 and Cr > 133 and Cr < 173:
+                skin = 1
+
+            if 0 == skin:
+                imgSkin.itemset((r, c, 0), 0)
+                imgSkin.itemset((r, c, 1), 0)
+                imgSkin.itemset((r, c, 2), 0)
+    return img, imgSkin
+
+
 def main():
 
     FACIAL_LANDMARKS_IDXS = OrderedDict([("mouth", (48, 68)),
@@ -146,7 +254,7 @@ def main():
                                          ("left_eye", (42, 48)),
                                          ("nose", (27, 36))])
 
-    image = os.path.join(path, 'curry.jpg')
+    image = os.path.join(path, 'a.jpg')
     image = cv2.imread(image)
 
     try:
@@ -170,6 +278,7 @@ def main():
         f = Face(model1_name, model2_name)
         face_image = cv2.resize(face_img, (200, 200))
         face = face_image.copy()
+
         face_img = np.reshape(face_image, (1, 200, 200, 3))
         face_img = face_img.astype('float32') / 255
 
@@ -206,20 +315,7 @@ def main():
         cv2.imshow('eye_right', eye_r_img)
         cv2.waitKey(0)
 
-        #initialize mask array and draw mask image
-        points_int = np.array([[int(p[0]), int(p[1])] for p in points])
-        remapped_shape = np.zeros_like(points)
-        landmark_face = np.zeros_like(face_image)
-        feature_mask = np.zeros((face_image.shape[0], face_image.shape[1]))
-
-        remapped_shape = face_remap(points_int)
-        remapped_shape = cv2.convexHull(points_int)
-
-        cv2.fillConvexPoly(feature_mask, remapped_shape[0:31], 1)
-        feature_mask = feature_mask.astype(np.bool)
-        landmark_face[feature_mask] = face_image[feature_mask]
-        cv2.imshow("mask_inv", landmark_face)
-        # cv2.imwrite("out_face.png", landmark_face)
+        landmark_face = crop_landmark_face(points, face_image)
 
         skin = f.detect(face_image)
 
