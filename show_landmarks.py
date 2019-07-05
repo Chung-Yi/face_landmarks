@@ -139,14 +139,14 @@ class Face:
             cv2.circle(face_image, (int(p[0]), int(p[1])), 2, (0, 0, 255), -1)
 
         p1 = (int(image_points[0][0]), int(image_points[0][1]))
-        p2 = (int(nose_end_point2D[0][0][0]), int(nose_end_point2D[0][0][1]))
+        # p2 = (int(nose_end_point2D[0][0][0]), int(nose_end_point2D[0][0][1]))
 
         cv2.line(face_image, p1, tuple(nose_end_point2D[1].ravel()),
-                 (0, 255, 0), 2)  #GREEN
+                 (0, 255, 0), 2)  #Green
         cv2.line(face_image, p1, tuple(nose_end_point2D[0].ravel()),
-                 (255, 0, 0), 2)
+                 (255, 0, 0), 2)  #Blue
         cv2.line(face_image, p1, tuple(nose_end_point2D[2].ravel()),
-                 (0, 0, 255), 2)
+                 (0, 0, 255), 2)  #RED
 
         cv2.putText(
             face_image, ('{:05.2f}').format(float(str(pitch))), (10, 10),
@@ -290,7 +290,7 @@ def skin_detect(face_image):
 
 def main():
 
-    image = os.path.join(path, 'b.jpg')
+    image = os.path.join(path, 'william.jpg')
     image = cv2.imread(image)
     face = image.copy()
     image_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
@@ -401,27 +401,6 @@ def main():
             cv2.waitKey(0)
             continue
         #######################################################################
-
-        # draw_landmak_point(face, points)
-        # cv2.imshow('landmark', face)
-        # cv2.waitKey(0)
-
-        # # cv2.imwrite('eye_left.jpg', eye_l_img)
-        # cv2.imshow('eye_left', eye_l_img)
-        # cv2.waitKey(0)
-
-        # # cv2.imwrite('eye_right.jpg', eye_r_img)
-        # cv2.imshow('eye_right', eye_r_img)
-        # cv2.waitKey(0)
-
-        # landmark_face = crop_landmark_face(points, face_image)
-
-        # skin = f.detect(face_image)
-
-        # draw_landmak_point(face_image, points)
-        # cv2.imshow('My Image', np.hstack([landmark_face, skin]))
-        # cv2.waitKey(0)
-        # cv2.destroyAllWindows()
 
         f.head_pose(points, face)
 
