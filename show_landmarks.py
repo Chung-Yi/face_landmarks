@@ -24,6 +24,8 @@ model1_name = os.path.join(path, 'models/cnn_0628.h5')
 model2_name = os.path.join(path,
                            'models/shape_predictor_81_face_landmarks.dat')
 
+INPUT_SIZE = 200
+
 gamma = 0.95
 
 Wcb = 46.97
@@ -64,7 +66,7 @@ class Face:
             points = self.model1.predict(face_img)
             end = timeit.default_timer()
             print(end - start)
-            points = np.reshape(points, (-1, 2)) * 200
+            points = np.reshape(points, (-1, 2))
         else:
             points = get_81_points(face_image, self.model2)
             points = np.array(points).astype('float32')
@@ -288,18 +290,13 @@ def skin_detect(face_image):
 
 def main():
 
-    FACIAL_LANDMARKS_IDXS = OrderedDict([("mouth", (48, 68)),
-                                         ("right_eyebrow", (17, 22)),
-                                         ("left_eyebrow", (22, 27)),
-                                         ("right_eye", (36, 42)),
-                                         ("left_eye", (42, 48)),
-                                         ("nose", (27, 36))])
-
-    image = os.path.join(path, 'm.jpg')
+    image = os.path.join(path, 'b.jpg')
     image = cv2.imread(image)
+    face = image.copy()
+    image_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
 
     try:
-        locations = fr.face_locations(image)
+        locations = fr.face_locations(image_rgb)
     except:
         sys.exit(0)
 
@@ -309,21 +306,38 @@ def main():
         start_x, start_y, end_x, end_y = loc[3], loc[0], loc[1], loc[2]
         locs.append((start_x, start_y, end_x, end_y))
 
-    cut_face_imgs = cut_face(image, locs)
+    cut_face_imgs = cut_face(image_rgb, locs)
 
-    for face_img in cut_face_imgs:
+    for i, face_img in enumerate(cut_face_imgs):
 
         if face_img.size == 0:
             continue
 
         f = Face(model1_name, model2_name)
-        face_image = cv2.resize(face_img, (200, 200))
-        face = face_image.copy()
+        face_resized = cv2.resize(face_img, (INPUT_SIZE, INPUT_SIZE))
+        face_reshape = np.reshape(face_resized, (1, INPUT_SIZE, INPUT_SIZE, 3))
+        face_normalize = face_reshape.astype('float32') / 255
+        points = f.face_landmark(face_normalize, face_resized, model_name)
 
-        face_img = np.reshape(face_image, (1, 200, 200, 3))
-        face_img = face_img.astype('float32') / 255
+        if len(locs[i]) == 0:
+            points = []
 
-        points = f.face_landmark(face_img, face_image, model_name)
+        if start_x <= 50 or start_y <= 50:
+            for point in points:
+                point[0] *= face_img.shape[1]
+                point[1] *= face_img.shape[0]
+                point[0] += locs[i][0]
+                point[1] += locs[i][1]
+        else:
+            for point in points:
+                point[0] *= face_img.shape[1]
+                point[1] *= face_img.shape[0]
+                point[0] += locs[i][0] - 50
+                point[1] += locs[i][1] - 50
+
+        # draw_landmak_point(image, points)
+        # cv2.imshow('img', image)
+        # cv2.waitKey(0)
 
         eye_r_x1 = int(points[42][0])
         eye_r_x2 = int(points[45][0])
@@ -332,8 +346,6 @@ def main():
         eye_r_y2 = int(
             max(points[42][1], points[47][1], points[46][1], points[45][1]))
 
-        eye_r_img = face_image[eye_r_y1:eye_r_y2, eye_r_x1:eye_r_x2]
-
         eye_l_x1 = int(points[36][0])
         eye_l_x2 = int(points[39][0])
         eye_l_y1 = int(
@@ -341,8 +353,8 @@ def main():
         eye_l_y2 = int(
             max(points[39][1], points[41][1], points[40][1], points[36][1]))
 
-        eye_l_img = face_image[eye_l_y1:eye_l_y2, eye_l_x1:eye_l_x2]
-        eye_r_img = face_image[eye_r_y1:eye_r_y2, eye_r_x1:eye_r_x2]
+        eye_l_img = face[eye_l_y1:eye_l_y2, eye_l_x1:eye_l_x2]
+        eye_r_img = face[eye_r_y1:eye_r_y2, eye_r_x1:eye_r_x2]
 
         eye_l_area = eye_l_img.shape[0] * eye_l_img.shape[1]
         eye_l_gray = cv2.cvtColor(eye_l_img, cv2.COLOR_BGR2GRAY)
@@ -352,40 +364,43 @@ def main():
         eye_r_gray = cv2.cvtColor(eye_r_img, cv2.COLOR_BGR2GRAY)
         eye_r_occ = np.count_nonzero(eye_r_gray < 50) / eye_r_area
 
+        #######################################################################
+        # detect eyes area to check if landmarks match on face
         if eye_l_occ > 0.25 and eye_r_occ > 0.25:
-            draw_landmak_point(face, points)
-            cv2.imshow('landmark', face)
+            draw_landmak_point(image, points)
+            cv2.imshow('landmark', image)
             cv2.waitKey(0)
 
-            cv2.imwrite('m_eye_left.jpg', eye_l_img)
+            # cv2.imwrite('william_eye_left.jpg', eye_l_img)
             cv2.imshow('eye_left', eye_l_img)
             cv2.waitKey(0)
 
-            cv2.imwrite('m_eye_right.jpg', eye_r_img)
+            # cv2.imwrite('william_eye_right.jpg', eye_r_img)
             cv2.imshow('eye_right', eye_r_img)
             cv2.waitKey(0)
 
-            landmark_face = crop_landmark_face(points, face_image)
+            landmark_face = crop_landmark_face(points, face)
 
-            skin = f.detect(face_image)
+            skin = f.detect(face)
 
-            draw_landmak_point(face_image, points)
+            draw_landmak_point(face, points)
             cv2.imshow('My Image', np.hstack([landmark_face, skin]))
             cv2.waitKey(0)
             cv2.destroyAllWindows()
         else:
-            draw_landmak_point(face, points)
-            cv2.imshow('landmark', face)
+            draw_landmak_point(image, points)
+            cv2.imshow('landmark', image)
             cv2.waitKey(0)
 
-            cv2.imwrite('m_eye_left.jpg', eye_l_img)
+            # cv2.imwrite('william_eye_left.jpg', eye_l_img)
             cv2.imshow('eye_left', eye_l_img)
             cv2.waitKey(0)
 
-            cv2.imwrite('m_eye_right.jpg', eye_r_img)
+            # cv2.imwrite('william_eye_right.jpg', eye_r_img)
             cv2.imshow('eye_right', eye_r_img)
             cv2.waitKey(0)
-            # continue
+            continue
+        #######################################################################
 
         # draw_landmak_point(face, points)
         # cv2.imshow('landmark', face)
@@ -408,7 +423,7 @@ def main():
         # cv2.waitKey(0)
         # cv2.destroyAllWindows()
 
-        f.head_pose(points, face_image)
+        f.head_pose(points, face)
 
 
 if __name__ == '__main__':
