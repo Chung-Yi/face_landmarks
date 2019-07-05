@@ -5,18 +5,45 @@ import numpy as np
 
 def cut_face(image, locations):
     face_imgs = []
+    delta_locs = []
+    height = image.shape[0]
+    width = image.shape[1]
 
     for loc in locations:
         start_x, start_y, end_x, end_y = loc
-        if start_x > 50 and start_y > 50:
-            face_img = image[start_y - 50:end_y + 50, start_x - 50:end_x +
-                             50, :]
-        else:
-            face_img = image[start_y:end_y, start_x:end_x, :]
+        delta = 40
 
+        new_start_y = start_y - delta
+        new_end_y = end_y + delta
+        new_start_x = start_x - delta
+        new_end_x = end_x + delta
+
+        if new_start_x <= 0:
+            new_start_x += 10
+
+        if new_start_y <= 0:
+            new_start_y += 10
+
+        if new_end_x >= width:
+            new_end_x -= 10
+
+        if new_end_y >= height:
+            new_end_y -= 10
+
+        # if start_x > 50 or start_y > 50:
+        #     face_img = image[start_y - 50:end_y + 50, start_x - 50:end_x +
+        #                      50, :]
+        # else:
+        #     face_img = image[start_y - 40:end_y + 30, start_x - 40:end_x +
+        #                      40, :]
+
+        face_img = image[new_start_y:new_end_y, new_start_x:new_end_x, :]
         face_imgs.append(face_img)
 
-    return face_imgs
+        delta_locs.append((abs(new_start_x - start_x),
+                           abs(new_start_y - start_y)))
+
+    return face_imgs, delta_locs
 
 
 def get_68_points(file_name=None):

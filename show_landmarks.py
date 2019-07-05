@@ -290,7 +290,7 @@ def skin_detect(face_image):
 
 def main():
 
-    image = os.path.join(path, 'william.jpg')
+    image = os.path.join(path, 't.jpg')
     image = cv2.imread(image)
     face = image.copy()
     image_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
@@ -306,9 +306,9 @@ def main():
         start_x, start_y, end_x, end_y = loc[3], loc[0], loc[1], loc[2]
         locs.append((start_x, start_y, end_x, end_y))
 
-    cut_face_imgs = cut_face(image_rgb, locs)
+    cut_face_imgs, delta_locs = cut_face(image_rgb, locs)
 
-    for i, face_img in enumerate(cut_face_imgs):
+    for i, (face_img, delta_locs) in enumerate(zip(cut_face_imgs, delta_locs)):
 
         if face_img.size == 0:
             continue
@@ -322,87 +322,80 @@ def main():
         if len(locs[i]) == 0:
             points = []
 
-        if start_x <= 50 or start_y <= 50:
-            for point in points:
-                point[0] *= face_img.shape[1]
-                point[1] *= face_img.shape[0]
-                point[0] += locs[i][0]
-                point[1] += locs[i][1]
-        else:
-            for point in points:
-                point[0] *= face_img.shape[1]
-                point[1] *= face_img.shape[0]
-                point[0] += locs[i][0] - 50
-                point[1] += locs[i][1] - 50
+        for point in points:
+            point[0] *= face_img.shape[1]
+            point[1] *= face_img.shape[0]
+            point[0] += locs[i][0] - delta_locs[0]
+            point[1] += locs[i][1] - delta_locs[1]
 
-        # draw_landmak_point(image, points)
-        # cv2.imshow('img', image)
-        # cv2.waitKey(0)
+        draw_landmak_point(image, points)
+        cv2.imshow('img', image)
+        cv2.waitKey(0)
 
-        eye_r_x1 = int(points[42][0])
-        eye_r_x2 = int(points[45][0])
-        eye_r_y1 = int(
-            min(points[42][1], points[43][1], points[44][1], points[45][1]))
-        eye_r_y2 = int(
-            max(points[42][1], points[47][1], points[46][1], points[45][1]))
+    # eye_r_x1 = int(points[42][0])
+    # eye_r_x2 = int(points[45][0])
+    # eye_r_y1 = int(
+    #     min(points[42][1], points[43][1], points[44][1], points[45][1]))
+    # eye_r_y2 = int(
+    #     max(points[42][1], points[47][1], points[46][1], points[45][1]))
 
-        eye_l_x1 = int(points[36][0])
-        eye_l_x2 = int(points[39][0])
-        eye_l_y1 = int(
-            min(points[36][1], points[37][1], points[38][1], points[39][1]))
-        eye_l_y2 = int(
-            max(points[39][1], points[41][1], points[40][1], points[36][1]))
+    # eye_l_x1 = int(points[36][0])
+    # eye_l_x2 = int(points[39][0])
+    # eye_l_y1 = int(
+    #     min(points[36][1], points[37][1], points[38][1], points[39][1]))
+    # eye_l_y2 = int(
+    #     max(points[39][1], points[41][1], points[40][1], points[36][1]))
 
-        eye_l_img = face[eye_l_y1:eye_l_y2, eye_l_x1:eye_l_x2]
-        eye_r_img = face[eye_r_y1:eye_r_y2, eye_r_x1:eye_r_x2]
+    # eye_l_img = face[eye_l_y1:eye_l_y2, eye_l_x1:eye_l_x2]
+    # eye_r_img = face[eye_r_y1:eye_r_y2, eye_r_x1:eye_r_x2]
 
-        eye_l_area = eye_l_img.shape[0] * eye_l_img.shape[1]
-        eye_l_gray = cv2.cvtColor(eye_l_img, cv2.COLOR_BGR2GRAY)
-        eye_l_occ = np.count_nonzero(eye_l_gray < 50) / eye_l_area
+    # eye_l_area = eye_l_img.shape[0] * eye_l_img.shape[1]
+    # eye_l_gray = cv2.cvtColor(eye_l_img, cv2.COLOR_BGR2GRAY)
+    # eye_l_occ = np.count_nonzero(eye_l_gray < 50) / eye_l_area
 
-        eye_r_area = eye_r_img.shape[0] * eye_r_img.shape[1]
-        eye_r_gray = cv2.cvtColor(eye_r_img, cv2.COLOR_BGR2GRAY)
-        eye_r_occ = np.count_nonzero(eye_r_gray < 50) / eye_r_area
+    # eye_r_area = eye_r_img.shape[0] * eye_r_img.shape[1]
+    # eye_r_gray = cv2.cvtColor(eye_r_img, cv2.COLOR_BGR2GRAY)
+    # eye_r_occ = np.count_nonzero(eye_r_gray < 50) / eye_r_area
 
-        #######################################################################
-        # detect eyes area to check if landmarks match on face
-        if eye_l_occ > 0.25 and eye_r_occ > 0.25:
-            draw_landmak_point(image, points)
-            cv2.imshow('landmark', image)
-            cv2.waitKey(0)
+    # #######################################################################
+    # # detect eyes area to check if landmarks match on face
+    # if eye_l_occ > 0.25 and eye_r_occ > 0.25:
+    #     draw_landmak_point(image, points)
+    #     cv2.imshow('landmark', image)
+    #     cv2.waitKey(0)
 
-            # cv2.imwrite('william_eye_left.jpg', eye_l_img)
-            cv2.imshow('eye_left', eye_l_img)
-            cv2.waitKey(0)
+    #     # cv2.imwrite('william_eye_left.jpg', eye_l_img)
+    #     cv2.imshow('eye_left', eye_l_img)
+    #     cv2.waitKey(0)
 
-            # cv2.imwrite('william_eye_right.jpg', eye_r_img)
-            cv2.imshow('eye_right', eye_r_img)
-            cv2.waitKey(0)
+    #     # cv2.imwrite('william_eye_right.jpg', eye_r_img)
+    #     cv2.imshow('eye_right', eye_r_img)
+    #     cv2.waitKey(0)
 
-            landmark_face = crop_landmark_face(points, face)
+    #     landmark_face = crop_landmark_face(points, face)
 
-            skin = f.detect(face)
+    #     skin = f.detect(face)
 
-            draw_landmak_point(face, points)
-            cv2.imshow('My Image', np.hstack([landmark_face, skin]))
-            cv2.waitKey(0)
-            cv2.destroyAllWindows()
-        else:
-            draw_landmak_point(image, points)
-            cv2.imshow('landmark', image)
-            cv2.waitKey(0)
+    #     draw_landmak_point(face, points)
+    #     cv2.imshow('My Image', np.hstack([landmark_face, skin]))
+    #     cv2.waitKey(0)
+    #     cv2.destroyAllWindows()
+    # else:
+    #     draw_landmak_point(image, points)
+    #     cv2.imshow('landmark', image)
+    #     cv2.waitKey(0)
 
-            # cv2.imwrite('william_eye_left.jpg', eye_l_img)
-            cv2.imshow('eye_left', eye_l_img)
-            cv2.waitKey(0)
+    #     # cv2.imwrite('william_eye_left.jpg', eye_l_img)
+    #     cv2.imshow('eye_left', eye_l_img)
+    #     cv2.waitKey(0)
 
-            # cv2.imwrite('william_eye_right.jpg', eye_r_img)
-            cv2.imshow('eye_right', eye_r_img)
-            cv2.waitKey(0)
-            continue
-        #######################################################################
+    #     # cv2.imwrite('william_eye_right.jpg', eye_r_img)
+    #     cv2.imshow('eye_right', eye_r_img)
+    #     cv2.waitKey(0)
+    #     continue
+    # #######################################################################
 
-        f.head_pose(points, face)
+    # f.head_pose(points, face)
 
 
 if __name__ == '__main__':
