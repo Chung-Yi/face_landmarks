@@ -158,7 +158,7 @@ def main():
         # cv2.imwrite('eyes/2500_eye_right.jpg', eye_r_img)
         # cv2.imshow('eye_right', eye_r_img)
         # cv2.waitKey(0)
-        # print(eye_l_occ, eye_r_occ, np.subtract(eye_l_occ, eye_r_occ))
+        print(eye_l_occ, eye_r_occ, np.subtract(eye_l_occ, eye_r_occ))
         if (eye_l_occ > 0.2 and eye_r_occ > 0.2) and abs(
                 np.subtract(eye_l_occ, eye_r_occ)) < 0.2:
             draw_landmak_point(image, points)
