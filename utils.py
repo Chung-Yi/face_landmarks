@@ -30,13 +30,6 @@ def cut_face(image, locations):
         if new_end_y >= height:
             new_end_y -= 10
 
-        # if start_x > 50 or start_y > 50:
-        #     face_img = image[start_y - 50:end_y + 50, start_x - 50:end_x +
-        #                      50, :]
-        # else:
-        #     face_img = image[start_y - 40:end_y + 30, start_x - 40:end_x +
-        #                      40, :]
-
         face_img = image[new_start_y:new_end_y, new_start_x:new_end_x, :]
         face_imgs.append(face_img)
 
