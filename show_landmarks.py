@@ -7,7 +7,7 @@ import imutils
 import numpy as np
 import face_recognition as fr
 from point_detector import Point
-from pose import PoseDetector
+from pose_detector import PoseDetector
 from utils import *
 from keras.models import load_model
 from argparse import ArgumentParser
@@ -84,11 +84,11 @@ def eyes_images(face, points):
 
     eye_l_area = eye_l_img.shape[0] * eye_l_img.shape[1]
     eye_l_gray = cv2.cvtColor(eye_l_img, cv2.COLOR_BGR2GRAY)
-    eye_l_occ = np.count_nonzero(eye_l_gray < 50) / eye_l_area
+    eye_l_occ = np.count_nonzero(eye_l_gray < 55) / eye_l_area
 
     eye_r_area = eye_r_img.shape[0] * eye_r_img.shape[1]
     eye_r_gray = cv2.cvtColor(eye_r_img, cv2.COLOR_BGR2GRAY)
-    eye_r_occ = np.count_nonzero(eye_r_gray < 50) / eye_r_area
+    eye_r_occ = np.count_nonzero(eye_r_gray < 55) / eye_r_area
 
     return (eye_l_occ, eye_r_occ), (eye_l_img, eye_r_img)
 
@@ -97,7 +97,7 @@ def main():
 
     # for image_name in glob.glob('test/test_images/*.jpg'):
 
-    image = os.path.join(path, '0.jpg')
+    image = os.path.join(path, 'curry.jpg')
     image = cv2.imread(image)
     face = image.copy()
     image_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
@@ -108,7 +108,7 @@ def main():
     try:
         locations = fr.face_locations(image_rgb)
     except:
-        sys.exit(0)
+        pass
 
     locs = []
 
@@ -127,9 +127,13 @@ def main():
         face_reshape = np.reshape(face_resized, (1, INPUT_SIZE, INPUT_SIZE, 3))
         face_normalize = face_reshape.astype('float32') / 255
         points = pt.face_landmark(face_normalize, face_resized, model_name)
+        points_for_crop = points.copy()
 
         if len(locs[i]) == 0:
             points = []
+
+        points_for_crop[:, 0] *= face_img.shape[1]
+        points_for_crop[:, 1] *= face_img.shape[0]
 
         for point in points:
             point[0] *= face_img.shape[1]
@@ -145,49 +149,49 @@ def main():
         eye_l_img = eyes_img[0]
         eye_r_img = eyes_img[1]
 
-        if eye_l_occ > 0.2 and eye_r_occ > 0.2:
+        # cv2.imwrite('eyes/2500_eye_left.jpg', eye_l_img)
+        # cv2.imshow('eye_left', eye_l_img)
+        # cv2.waitKey(0)
+        # draw_landmak_point(image, points)
+        # cv2.imwrite('eyes/2500_landmark.jpg', image)
+
+        # cv2.imwrite('eyes/2500_eye_right.jpg', eye_r_img)
+        # cv2.imshow('eye_right', eye_r_img)
+        # cv2.waitKey(0)
+        # print(eye_l_occ, eye_r_occ, np.subtract(eye_l_occ, eye_r_occ))
+        if (eye_l_occ > 0.2 and eye_r_occ > 0.2) and abs(
+                np.subtract(eye_l_occ, eye_r_occ)) < 0.2:
             draw_landmak_point(image, points)
             cv2.imshow('img', image)
             cv2.waitKey(0)
-            # cv2.imwrite(
-            #     './test/landmark_image/' + str(i) + '_' +
-            #     image_name.split('/')[-1], image)
-            # cv2.imshow('landmark', image)
-            # cv2.waitKey(0)
 
-            # cv2.imwrite('william_eye_left.jpg', eye_l_img)
-            # cv2.imshow('eye_left', eye_l_img)
-            # cv2.waitKey(0)
-
-            # cv2.imwrite('william_eye_right.jpg', eye_r_img)
-            # cv2.imshow('eye_right', eye_r_img)
-            # cv2.waitKey(0)
-
-            landmark_face = crop_landmark_face(points, face)
-            skin = im.detect(face)
+            face_bgr = cv2.cvtColor(face_img, cv2.COLOR_RGB2BGR)
+            landmark_face = crop_landmark_face(points_for_crop, face_bgr)
+            skin = im.detect(face_bgr)
 
             cv2.imshow('My Image', np.hstack([landmark_face, skin]))
             cv2.waitKey(0)
             cv2.destroyAllWindows()
+
+            pose.detect_head_pose_with_6_points(points)
+            cv2.imshow('output', image)
+            cv2.waitKey(0)
+            cv2.destroyAllWindows()
+
         else:
-            # draw_landmak_point(image, points)
-            # cv2.imshow('landmark', image)
-            # cv2.waitKey(0)
+            draw_landmak_point(image, points)
+            cv2.imshow('landmark', image)
+            cv2.waitKey(0)
 
-            # cv2.imwrite('william_eye_left.jpg', eye_l_img)
-            # cv2.imshow('eye_left', eye_l_img)
-            # cv2.waitKey(0)
+            cv2.imwrite('william_eye_left.jpg', eye_l_img)
+            cv2.imshow('eye_left', eye_l_img)
+            cv2.waitKey(0)
 
-            # cv2.imwrite('william_eye_right.jpg', eye_r_img)
-            # cv2.imshow('eye_right', eye_r_img)
-            # cv2.waitKey(0)
+            cv2.imwrite('william_eye_right.jpg', eye_r_img)
+            cv2.imshow('eye_right', eye_r_img)
+            cv2.waitKey(0)
             continue
-            # #######################################################################
-
-        pose.detect_head_pose_with_6_points(points)
-        cv2.imshow('output', image)
-        cv2.waitKey(0)
-        cv2.destroyAllWindows()
+        # #######################################################################
 
 
 if __name__ == '__main__':
