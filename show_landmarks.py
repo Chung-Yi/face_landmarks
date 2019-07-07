@@ -4,6 +4,7 @@ import sys
 import glob
 import math
 import imutils
+import time
 import numpy as np
 import face_recognition as fr
 from point_detector import Point
@@ -13,8 +14,13 @@ from keras.models import load_model
 from argparse import ArgumentParser
 from collections import OrderedDict
 from process_image import Image
+from video_resource import ThreadingVideoResource
 
 parser = ArgumentParser()
+parser.add_argument(
+    '--did',
+    default='0',
+    help="assign device ID, example: 0AA1EA9A5A04B78D4581DD6D17742627.")
 parser.add_argument('--model_name', default='cnn', help='choose a model')
 args = parser.parse_args()
 
@@ -94,13 +100,27 @@ def eyes_images(face, points):
 
 
 def main():
+    sleep_time = 1
+    time.sleep(sleep_time)
+    print("Init sleep for %d seconds" % sleep_time)
 
+    cam_width, cam_height = 1280, 720
+    crop_width = 500
+    crop_height = 500
+
+    if args.did.isdigit():
+        virtual_device = int(args.did)
+    else:
+        os.path.join('video', args.did)
+
+    # resource = ThreadingVideoResource(virtual_device, cam_width, cam_height)
     # for image_name in glob.glob('test/test_images/*.jpg'):
 
-    image = os.path.join(path, 'curry.jpg')
+    image = os.path.join(path, 'f.jpg')
     image = cv2.imread(image)
     face = image.copy()
     image_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+
     pt = Point(model1_name, model2_name)
     pose = PoseDetector(image)
     im = Image()
