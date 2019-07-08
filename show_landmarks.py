@@ -27,11 +27,55 @@ args = parser.parse_args()
 model_name = args.model_name
 
 path = os.path.abspath(os.path.dirname(__file__))
-model1_name = os.path.join(path, 'models/cnn_0628.h5')
+model1_name = os.path.join(path, 'models/cnn_0702.h5')
 model2_name = os.path.join(path,
                            'models/shape_predictor_81_face_landmarks.dat')
 
 INPUT_SIZE = 200
+
+
+def get_face_info(frame, pt):
+    locations = fr.face_locations(frame)
+    locs = []
+    pts = []
+    eyes_info = []
+    for loc in locations:
+        start_x, start_y, end_x, end_y = loc[3], loc[0], loc[1], loc[2]
+        locs.append((start_x, start_y, end_x, end_y))
+
+    cut_face_imgs, delta_locs = cut_face(frame, locs)
+
+    for i, (face_img, delta_locs) in enumerate(zip(cut_face_imgs, delta_locs)):
+        if face_img.size == 0:
+            continue
+        face_resized = cv2.resize(face_img, (INPUT_SIZE, INPUT_SIZE))
+        face_reshape = np.reshape(face_resized, (1, INPUT_SIZE, INPUT_SIZE, 3))
+        face_normalize = face_reshape.astype('float32') / 255
+        points = pt.face_landmark(face_normalize, face_resized, model_name)
+        points_for_crop = points.copy()
+
+        if len(locs[i]) == 0:
+            points = np.array([])
+
+        points_for_crop[:, 0] *= face_img.shape[1]
+        points_for_crop[:, 1] *= face_img.shape[0]
+
+        points[:, 0] *= face_img.shape[1]
+        points[:, 1] *= face_img.shape[0]
+        points[:, 0] += locs[i][0] - delta_locs[0]
+        points[:, 1] += locs[i][1] - delta_locs[1]
+
+        frame_bgr = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
+        eyes_occ, eyes_img = eyes_images(frame_bgr, points)
+        eye_l_occ = eyes_occ[0]
+        eye_r_occ = eyes_occ[1]
+        eye_l_img = eyes_img[0]
+        eye_r_img = eyes_img[1]
+
+        pts.append(points)
+        eyes_info.append([(eye_l_occ, eye_r_occ), (eye_l_img, eye_r_img)])
+
+    return zip(*[pts, eyes_info])
 
 
 def face_remap(shape):
@@ -104,114 +148,52 @@ def main():
     time.sleep(sleep_time)
     print("Init sleep for %d seconds" % sleep_time)
 
+    pt = Point(model1_name, model2_name)
+    im = Image()
+
     cam_width, cam_height = 1280, 720
-    crop_width = 500
-    crop_height = 500
 
     if args.did.isdigit():
         virtual_device = int(args.did)
     else:
         os.path.join('video', args.did)
 
-    # resource = ThreadingVideoResource(virtual_device, cam_width, cam_height)
-    # for image_name in glob.glob('test/test_images/*.jpg'):
+    resource = ThreadingVideoResource(virtual_device, cam_width, cam_height)
 
-    image = os.path.join(path, 'f.jpg')
-    image = cv2.imread(image)
-    face = image.copy()
-    image_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+    crop_start = int((cam_width - cam_height) / 2 + 1)
+    i = 0
+    while True:
+        try:
+            frame, cap_time = resource.get_frame_date()
+            frame = frame[:, crop_start:crop_start + cam_height, :]
+            frame = cv2.flip(frame, 1)
+            frame_bgr = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
+        except Exception as err:
+            resource.release()
+            raise err
 
-    pt = Point(model1_name, model2_name)
-    pose = PoseDetector(image)
-    im = Image()
+        pose = PoseDetector(frame_bgr)
 
-    try:
-        locations = fr.face_locations(image_rgb)
-    except:
-        pass
+        face_info = get_face_info(frame, pt)
+        for pts, eye_info in face_info:
+            # cv2.imwrite('eye_images/{}eye_l.jpg'.format(str(i)),
+            #             eye_info[1][0])
+            # cv2.imwrite('eye_images/{}eye_r.jpg'.format(str(i)),
+            #             eye_info[1][1])
+            print(eye_info[0][0], eye_info[0][1],
+                  abs(np.subtract(eye_info[0][0], eye_info[0][1])))
 
-    locs = []
+            i += 1
+            if (eye_info[0][0] > 0.2 and eye_info[0][1] > 0.2) and abs(
+                    np.subtract(eye_info[0][0], eye_info[0][1])) < 0.2:
+                pose.detect_head_pose_with_6_points(pts)
+                draw_landmak_point(frame_bgr, pts)
 
-    for loc in locations:
-        start_x, start_y, end_x, end_y = loc[3], loc[0], loc[1], loc[2]
-        locs.append((start_x, start_y, end_x, end_y))
+            else:
+                draw_landmak_point(frame_bgr, pts)
 
-    cut_face_imgs, delta_locs = cut_face(image_rgb, locs)
-
-    for i, (face_img, delta_locs) in enumerate(zip(cut_face_imgs, delta_locs)):
-
-        if face_img.size == 0:
-            continue
-
-        face_resized = cv2.resize(face_img, (INPUT_SIZE, INPUT_SIZE))
-        face_reshape = np.reshape(face_resized, (1, INPUT_SIZE, INPUT_SIZE, 3))
-        face_normalize = face_reshape.astype('float32') / 255
-        points = pt.face_landmark(face_normalize, face_resized, model_name)
-        points_for_crop = points.copy()
-
-        if len(locs[i]) == 0:
-            points = []
-
-        points_for_crop[:, 0] *= face_img.shape[1]
-        points_for_crop[:, 1] *= face_img.shape[0]
-
-        for point in points:
-            point[0] *= face_img.shape[1]
-            point[1] *= face_img.shape[0]
-            point[0] += locs[i][0] - delta_locs[0]
-            point[1] += locs[i][1] - delta_locs[1]
-
-        # #######################################################################
-        # # detect eyes area to check if landmarks match on face
-        eyes_occ, eyes_img = eyes_images(face, points)
-        eye_l_occ = eyes_occ[0]
-        eye_r_occ = eyes_occ[1]
-        eye_l_img = eyes_img[0]
-        eye_r_img = eyes_img[1]
-
-        # cv2.imwrite('eyes/2500_eye_left.jpg', eye_l_img)
-        # cv2.imshow('eye_left', eye_l_img)
-        # cv2.waitKey(0)
-        # draw_landmak_point(image, points)
-        # cv2.imwrite('eyes/2500_landmark.jpg', image)
-
-        # cv2.imwrite('eyes/2500_eye_right.jpg', eye_r_img)
-        # cv2.imshow('eye_right', eye_r_img)
-        # cv2.waitKey(0)
-        print(eye_l_occ, eye_r_occ, np.subtract(eye_l_occ, eye_r_occ))
-        if (eye_l_occ > 0.2 and eye_r_occ > 0.2) and abs(
-                np.subtract(eye_l_occ, eye_r_occ)) < 0.2:
-            draw_landmak_point(image, points)
-            cv2.imshow('img', image)
-            cv2.waitKey(0)
-
-            face_bgr = cv2.cvtColor(face_img, cv2.COLOR_RGB2BGR)
-            landmark_face = crop_landmark_face(points_for_crop, face_bgr)
-            skin = im.detect(face_bgr)
-
-            cv2.imshow('My Image', np.hstack([landmark_face, skin]))
-            cv2.waitKey(0)
-            cv2.destroyAllWindows()
-
-            pose.detect_head_pose_with_6_points(points)
-            cv2.imshow('output', image)
-            cv2.waitKey(0)
-            cv2.destroyAllWindows()
-
-        else:
-            draw_landmak_point(image, points)
-            cv2.imshow('landmark', image)
-            cv2.waitKey(0)
-
-            cv2.imwrite('william_eye_left.jpg', eye_l_img)
-            cv2.imshow('eye_left', eye_l_img)
-            cv2.waitKey(0)
-
-            cv2.imwrite('william_eye_right.jpg', eye_r_img)
-            cv2.imshow('eye_right', eye_r_img)
-            cv2.waitKey(0)
-            continue
-        # #######################################################################
+        cv2.imshow('output', frame_bgr)
+        cv2.waitKey(1)
 
 
 if __name__ == '__main__':
