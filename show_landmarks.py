@@ -5,6 +5,7 @@ import glob
 import math
 import imutils
 import time
+import pafy
 import numpy as np
 import face_recognition as fr
 from point_detector import Point
@@ -15,6 +16,7 @@ from argparse import ArgumentParser
 from collections import OrderedDict
 from process_image import Image
 from video_resource import ThreadingVideoResource
+from uuid import uuid4
 
 parser = ArgumentParser()
 parser.add_argument(
@@ -46,34 +48,38 @@ def get_face_info(frame, pt):
     cut_face_imgs, delta_locs = cut_face(frame, locs)
 
     for i, (face_img, delta_locs) in enumerate(zip(cut_face_imgs, delta_locs)):
-        if face_img.size == 0:
-            continue
-        face_resized = cv2.resize(face_img, (INPUT_SIZE, INPUT_SIZE))
-        face_reshape = np.reshape(face_resized, (1, INPUT_SIZE, INPUT_SIZE, 3))
-        face_normalize = face_reshape.astype('float32') / 255
-        points = pt.face_landmark(face_normalize, face_resized, model_name)
-        points_for_crop = points.copy()
+        if face_img.size != 0:
+            face_resized = cv2.resize(face_img, (INPUT_SIZE, INPUT_SIZE))
+            face_reshape = np.reshape(face_resized,
+                                      (1, INPUT_SIZE, INPUT_SIZE, 3))
+            face_normalize = face_reshape.astype('float32') / 255
+            points = pt.face_landmark(face_normalize, face_resized, model_name)
+            points_for_crop = points.copy()
 
-        if len(locs[i]) == 0:
-            points = np.array([])
+            if len(locs[i]) == 0:
+                points = np.array([])
 
-        points_for_crop[:, 0] *= face_img.shape[1]
-        points_for_crop[:, 1] *= face_img.shape[0]
+            points_for_crop[:, 0] *= face_img.shape[1]
+            points_for_crop[:, 1] *= face_img.shape[0]
 
-        points[:, 0] *= face_img.shape[1]
-        points[:, 1] *= face_img.shape[0]
-        points[:, 0] += locs[i][0] - delta_locs[0]
-        points[:, 1] += locs[i][1] - delta_locs[1]
+            points[:, 0] *= face_img.shape[1]
+            points[:, 1] *= face_img.shape[0]
+            points[:, 0] += locs[i][0] - delta_locs[0]
+            points[:, 1] += locs[i][1] - delta_locs[1]
 
-        frame_bgr = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
-        eyes_occ, eyes_img = eyes_images(frame_bgr, points)
-        eye_l_occ = eyes_occ[0]
-        eye_r_occ = eyes_occ[1]
-        eye_l_img = eyes_img[0]
-        eye_r_img = eyes_img[1]
+            frame_bgr = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
+            eyes_occ, eyes_img = eyes_images(frame_bgr, points)
+            if (eyes_occ is not None) and (eyes_img is not None):
+                eye_l_occ = eyes_occ[0]
+                eye_r_occ = eyes_occ[1]
+                eye_l_img = eyes_img[0]
+                eye_r_img = eyes_img[1]
 
-        pts.append(points)
-        eyes_info.append([(eye_l_occ, eye_r_occ), (eye_l_img, eye_r_img)])
+                pts.append(points)
+                eyes_info.append([(eye_l_occ, eye_r_occ), (eye_l_img,
+                                                           eye_r_img)])
+        else:
+            return None
 
     return zip(*[pts, eyes_info])
 
@@ -115,6 +121,7 @@ def crop_landmark_face(points, face_image):
 
 
 def eyes_images(face, points):
+
     eye_r_x1 = int(points[42][0])
     eye_r_x2 = int(points[45][0])
     eye_r_y1 = int(
@@ -131,6 +138,9 @@ def eyes_images(face, points):
 
     eye_l_img = face[eye_l_y1:eye_l_y2, eye_l_x1:eye_l_x2]
     eye_r_img = face[eye_r_y1:eye_r_y2, eye_r_x1:eye_r_x2]
+
+    if (len(eye_l_img) == 0) or (len(eye_r_img) == 0):
+        return None, None
 
     eye_l_area = eye_l_img.shape[0] * eye_l_img.shape[1]
     eye_l_gray = cv2.cvtColor(eye_l_img, cv2.COLOR_BGR2GRAY)
@@ -155,8 +165,13 @@ def main():
 
     if args.did.isdigit():
         virtual_device = int(args.did)
+    elif 'https' in args.did:
+        url = args.did
+        vpafy = pafy.new(url)
+        play = vpafy.getbest(preftype="mp4")
+        virtual_device = play.url
     else:
-        os.path.join('video', args.did)
+        virtual_device = args.did
 
     resource = ThreadingVideoResource(virtual_device, cam_width, cam_height)
 
@@ -165,8 +180,8 @@ def main():
     while True:
         try:
             frame, cap_time = resource.get_frame_date()
-            frame = frame[:, crop_start:crop_start + cam_height, :]
-            frame = cv2.flip(frame, 1)
+            # frame = frame[:, crop_start:crop_start + cam_height, :]
+            # frame = cv2.flip(frame, 1)
             frame_bgr = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
         except Exception as err:
             resource.release()
@@ -175,22 +190,33 @@ def main():
         pose = PoseDetector(frame_bgr)
 
         face_info = get_face_info(frame, pt)
-        for pts, eye_info in face_info:
-            # cv2.imwrite('eye_images/{}eye_l.jpg'.format(str(i)),
-            #             eye_info[1][0])
-            # cv2.imwrite('eye_images/{}eye_r.jpg'.format(str(i)),
-            #             eye_info[1][1])
-            print(eye_info[0][0], eye_info[0][1],
-                  abs(np.subtract(eye_info[0][0], eye_info[0][1])))
+        if face_info is not None:
+            for pts, eye_info in face_info:
+                # cv2.imwrite('eye_images/{}eye_l.jpg'.format(str(i)),
+                #             eye_info[1][0])
+                # cv2.imwrite('eye_images/{}eye_r.jpg'.format(str(i)),
+                #             eye_info[1][1])
+                print(eye_info[0][0], eye_info[0][1],
+                      abs(np.subtract(eye_info[0][0], eye_info[0][1])))
 
-            i += 1
-            if (eye_info[0][0] > 0.2 and eye_info[0][1] > 0.2) and abs(
-                    np.subtract(eye_info[0][0], eye_info[0][1])) < 0.2:
-                pose.detect_head_pose_with_6_points(pts)
-                draw_landmak_point(frame_bgr, pts)
+                i += 1
+                if (eye_info[0][0] > 0.2 and eye_info[0][1] > 0.2) and abs(
+                        np.subtract(eye_info[0][0], eye_info[0][1])) < 0.2:
+                    yaw_angle = pose.detect_head_pose_with_6_points(pts)
+                    draw_landmak_point(frame_bgr, pts)
 
-            else:
-                draw_landmak_point(frame_bgr, pts)
+                    # if abs(yaw_angle) < 10.0:
+                    #     cv2.imwrite('head_pose/m/{}.jpg'.format(str(i)),
+                    #                 cv2.cvtColor(frame, cv2.COLOR_RGB2BGR))
+                    # elif yaw_angle > 10.0:
+                    #     cv2.imwrite('head_pose/l/{}.jpg'.format(str(i)),
+                    #                 cv2.cvtColor(frame, cv2.COLOR_RGB2BGR))
+                    # elif yaw_angle < -10.0:
+                    #     cv2.imwrite('head_pose/r/{}.jpg'.format(str(i)),
+                    #                 cv2.cvtColor(frame, cv2.COLOR_RGB2BGR))
+
+                else:
+                    draw_landmak_point(frame_bgr, pts)
 
         cv2.imshow('output', frame_bgr)
         cv2.waitKey(1)
