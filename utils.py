@@ -18,17 +18,9 @@ def cut_face(image, locations):
         new_start_x = start_x - delta
         new_end_x = end_x + delta
 
-        if new_start_x <= 0:
-            new_start_x += 10
-
-        if new_start_y <= 0:
-            new_start_y += 10
-
-        if new_end_x >= width:
-            new_end_x -= 10
-
-        if new_end_y >= height:
-            new_end_y -= 10
+        new_start_x, new_start_y, new_end_x, new_end_y = max(
+            0, new_start_x), max(0, new_start_y), min(width, new_end_x), min(
+                height, new_end_y)
 
         face_img = image[new_start_y:new_end_y, new_start_x:new_end_x, :]
         face_imgs.append(face_img)
