@@ -453,55 +453,48 @@ def main():
         verbose=2,
         callbacks=[es, mc1])
 
-    save_model(model1, 'cnn', model_path)
+    # # model2
+    # model2 = SimpleCNN(x_train)
+    # train_history_2 = model2.fit(
+    #     x_train,
+    #     y_train,
+    #     validation_split=0.2,
+    #     epochs=2000,
+    #     batch_size=32,
+    #     verbose=2,
+    #     callbacks=[es, mc2])
 
-    # model2
-    model2 = SimpleCNN(x_train)
-    train_history_2 = model2.fit(
-        x_train,
-        y_train,
-        validation_split=0.2,
-        epochs=2000,
-        batch_size=32,
-        verbose=2,
-        callbacks=[es, mc2])
+    # # model3
+    # model3 = SimpleCNN(x_train, withDropout=True)
+    # train_history_3 = model3.fit(
+    #     x_train,
+    #     y_train,
+    #     validation_split=0.2,
+    #     epochs=2000,
+    #     batch_size=32,
+    #     verbose=2,
+    #     callbacks=[es, mc3])
 
-    save_model(model2, 'simplecnn', model_path)
-
-    # model3
-    model3 = SimpleCNN(x_train, withDropout=True)
-    train_history_3 = model3.fit(
-        x_train,
-        y_train,
-        validation_split=0.2,
-        epochs=2000,
-        batch_size=32,
-        verbose=2,
-        callbacks=[es, mc3])
-
-    save_model(model3, 'simplecnn_dropout', model_path)
-
-    # model4
-    modifier = FlipImg()
-    model4 = SimpleCNN(x_train)
-    x_train, x_val, y_train, y_val = train_test_split(
-        x_train, y_train, test_size=0.2, random_state=42)
-    train_history_4 = fit(
-        model4,
-        modifier,
-        train=(x_train, y_train),
-        validation=(x_val, y_val),
-        batch_size=32,
-        epochs=2000,
-        print_every=100, patience=100)
-
-    save_model(model4, 'flipcnn', model_path)
+    # # model4
+    # modifier = FlipImg()
+    # model4 = SimpleCNN(x_train)
+    # x_train, x_val, y_train, y_val = train_test_split(
+    #     x_train, y_train, test_size=0.2, random_state=42)
+    # train_history_4 = fit(
+    #     model4,
+    #     modifier,
+    #     train=(x_train, y_train),
+    #     validation=(x_val, y_val),
+    #     batch_size=32,
+    #     epochs=2000,
+    #     print_every=100,
+    #     patience=100)
 
     plt.figure(figsize=(8, 8))
     show_train_history(train_history_1, 'loss', 'val_loss', 'model1', plt)
-    show_train_history(train_history_2, 'loss', 'val_loss', 'model2', plt)
-    show_train_history(train_history_3, 'loss', 'val_loss', 'model3', plt)
-    show_train_history(train_history_4, 'loss', 'val_loss', 'model4', plt)
+    # show_train_history(train_history_2, 'loss', 'val_loss', 'model2', plt)
+    # show_train_history(train_history_3, 'loss', 'val_loss', 'model3', plt)
+    # show_train_history(train_history_4, 'loss', 'val_loss', 'model4', plt)
     plt.ylabel('Loss')
     plt.xlabel('Epoch')
     plt.legend()
@@ -510,19 +503,14 @@ def main():
     predict1 = model1.predict(x_test)
     # plot_images_labels_prediction(x_test, predict1, len(x_test))
 
-    predict2 = model2.predict(x_test)
-    # plot_images_labels_prediction(x_test, predict2, len(x_test))
+    # predict2 = model2.predict(x_test)
+    # # plot_images_labels_prediction(x_test, predict2, len(x_test))
 
-    predict3 = model3.predict(x_test)
-    # plot_images_labels_prediction(x_test, predict3, len(x_test))
-    predict4 = model4.predict(x_test)
+    # predict3 = model3.predict(x_test)
+    # # plot_images_labels_prediction(x_test, predict3, len(x_test))
+    # predict4 = model4.predict(x_test)
 
-    plot_all_models(x_test, predict1, predict2, predict3, predict4)
-
-    # save_model(model1, 'cnn')
-    # save_model(model2, 'simplecnn')
-    # save_model(model3, 'flipcnn')
-    # save_model(model4, 'simplecnn_dropout')
+    # plot_all_models(x_test, predict1, predict2, predict3, predict4)
 
 
 if __name__ == "__main__":
